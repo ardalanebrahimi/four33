@@ -51,6 +51,15 @@ import { MovementBadgeComponent } from '../../components/movement-badge/movement
           }
         </div>
 
+        <input
+          type="text"
+          class="title-input"
+          placeholder="Title (optional)"
+          [ngModel]="state.title()"
+          (ngModelChange)="onTitleChange($event)"
+          [maxlength]="100"
+        />
+
         <p class="subtitle">Add 3–5 words. What did you hear?</p>
 
         <div class="tags-list">
@@ -115,13 +124,33 @@ import { MovementBadgeComponent } from '../../components/movement-badge/movement
         display: flex;
         align-items: center;
         gap: 12px;
-        margin-bottom: 8px;
+        margin-bottom: 16px;
       }
 
       .title {
         font-size: 28px;
         font-weight: 600;
         margin: 0;
+      }
+
+      .title-input {
+        width: 100%;
+        padding: 14px 16px;
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid var(--color-border);
+        color: var(--color-text-primary);
+        font-size: 18px;
+        margin-bottom: 24px;
+
+        &::placeholder {
+          color: var(--color-text-tertiary);
+        }
+
+        &:focus {
+          outline: none;
+          border-bottom-color: var(--color-border-light);
+        }
       }
 
       .subtitle {
@@ -244,6 +273,10 @@ export class TagsInputPage {
     return `${needed} more required`;
   }
 
+  onTitleChange(value: string): void {
+    this.state.setTitle(value);
+  }
+
   addTag(): void {
     if (this.canAddTag) {
       this.state.addTag(this.newTag);
@@ -270,6 +303,7 @@ export class TagsInputPage {
       audioUrl: this.state.audioUrl(),
       waveformData: draft.waveformData,
       tags: draft.tags.map((name) => ({ id: '', name, isOriginal: true })),
+      title: draft.title || undefined,
     });
 
     this.state.reset();

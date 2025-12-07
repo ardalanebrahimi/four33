@@ -9,6 +9,7 @@ export class RecordingStateService {
   private _audioUrl = signal<string>('');
   private _waveformData = signal<number[]>([]);
   private _tags = signal<string[]>([]);
+  private _title = signal<string | null>(null);
   private _elapsed = signal<number>(0);
   private _isRecording = signal<boolean>(false);
 
@@ -19,6 +20,7 @@ export class RecordingStateService {
   readonly audioUrl = this._audioUrl.asReadonly();
   readonly waveformData = this._waveformData.asReadonly();
   readonly tags = this._tags.asReadonly();
+  readonly title = this._title.asReadonly();
   readonly elapsed = this._elapsed.asReadonly();
   readonly isRecording = this._isRecording.asReadonly();
 
@@ -89,6 +91,10 @@ export class RecordingStateService {
     this._tags.update((tags) => tags.filter((t) => t !== tag));
   }
 
+  setTitle(title: string | null): void {
+    this._title.set(title?.trim() || null);
+  }
+
   startUpload(): void {
     this._phase.set('uploading');
   }
@@ -99,6 +105,7 @@ export class RecordingStateService {
       audioBlob: this._audioBlob(),
       waveformData: this._waveformData(),
       tags: this._tags(),
+      title: this._title(),
     };
   }
 
@@ -112,6 +119,7 @@ export class RecordingStateService {
     this._audioUrl.set('');
     this._waveformData.set([]);
     this._tags.set([]);
+    this._title.set(null);
     this._elapsed.set(0);
     this._isRecording.set(false);
   }

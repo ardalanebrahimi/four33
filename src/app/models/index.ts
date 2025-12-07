@@ -58,6 +58,7 @@ export interface Recording {
   audioUrl: string;
   waveformData: number[];
   tags: Tag[];
+  title?: string;
   likesCount: number;
   isLiked: boolean;
   likedByUsers?: User[];
@@ -80,6 +81,7 @@ export interface RecordingDraft {
   audioBlob: Blob | null;
   waveformData: number[];
   tags: string[];
+  title: string | null;
 }
 
 export type RecordingPhase =

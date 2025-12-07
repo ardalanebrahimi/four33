@@ -227,6 +227,7 @@ export class MockDataService {
         name: typeof t === 'string' ? t : t.name,
         isOriginal: true,
       })),
+      title: recording.title,
       likesCount: 0,
       isLiked: false,
       createdAt: new Date(),
