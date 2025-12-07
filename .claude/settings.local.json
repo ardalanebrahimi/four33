@@ -1,8 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "Bash(powershell -Command:*)",
-      "Bash(npm run build:*)"
+      "Bash(az group list:*)",
+      "Bash(az staticwebapp create:*)",
+      "Bash(az staticwebapp secrets list:*)",
+      "Bash(npm install:*)",
+      "Bash(swa deploy:*)",
+      "Bash(az webapp cors add:*)",
+      "Bash(az staticwebapp delete:*)",
+      "Bash(az webapp create:*)",
+      "Bash(az appservice plan:*)",
+      "Bash(az webapp list:*)",
+      "Bash(az webapp deployment source config-zip:*)",
+      "Bash(az webapp config set:*)",
+      "Bash(az webapp cors:*)",
+      "Bash(az webapp restart:*)"
     ],
     "deny": [],
     "ask": []

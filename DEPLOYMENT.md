@@ -84,12 +84,58 @@ The API will use in-memory database if no connection string is provided.
 ### Environment Configuration
 
 1. Copy `src/environments/environment.ts.example` to `src/environments/environment.ts`
-2. Set your API URL
+2. Copy `src/environments/environment.prod.ts.example` to `src/environments/environment.prod.ts`
+3. Set your API URL in both files
 
-### Building for Production
+### Azure App Service Deployment
+
+Azure App Service provides hosting with a predictable URL (`<app-name>.azurewebsites.net`).
+
+#### 1. Build the Frontend
 
 ```bash
 npm run build
+```
+
+This creates the production build in `dist/four33/browser/`.
+
+#### 2. Create Azure Web App
+
+```bash
+# Create the Web App (use an existing App Service plan or create new)
+az webapp create \
+  --name <app-name> \
+  --resource-group <resource-group> \
+  --plan <app-service-plan> \
+  --runtime "NODE:20-lts"
+
+# Configure for SPA routing (redirects all routes to index.html)
+az webapp config set \
+  --name <app-name> \
+  --resource-group <resource-group> \
+  --startup-file "pm2 serve /home/site/wwwroot --no-daemon --spa"
+```
+
+#### 3. Deploy
+
+```bash
+# PowerShell - Create deployment zip
+Compress-Archive -Path ./dist/four33/browser/* -DestinationPath ./frontend.zip -Force
+
+# Deploy to Azure
+az webapp deployment source config-zip \
+  --name <app-name> \
+  --resource-group <resource-group> \
+  --src ./frontend.zip
+```
+
+#### 4. Update Backend CORS
+
+Add the Web App URL to your backend CORS configuration:
+
+```bash
+az webapp cors add --name <backend-app-name> --resource-group <resource-group> \
+  --allowed-origins "https://<app-name>.azurewebsites.net"
 ```
 
 ### Building for Android
