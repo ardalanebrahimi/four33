@@ -17,12 +17,12 @@ import { play, heart, heartOutline } from 'ionicons/icons';
     IonIcon,
   ],
   template: `
-    <div class="card" (click)="cardClick.emit(recording)">
+    <div class="card" (click)="onCardClick($event)">
       <div class="header">
         <button class="play-btn" (click)="playClick($event)">
           <ion-icon name="play"></ion-icon>
         </button>
-        <div class="user-info" (click)="userClick.emit(recording.user); $event.stopPropagation()">
+        <div class="user-info" (click)="onUserClick($event)">
           <span class="username">{{ recording.user.username }}</span>
           <span class="time">{{ recording.timeAgo }}</span>
         </div>
@@ -34,11 +34,11 @@ import { play, heart, heartOutline } from 'ionicons/icons';
           </button>
         </div>
       </div>
-      <div class="tags">
+      <div class="tags" (click)="$event.stopPropagation()">
         @for (tag of recording.tags.slice(0, 3); track tag.id) {
           <app-tag-chip
             [name]="tag.name"
-            (chipClick)="tagClick.emit(tag)"
+            (chipClick)="onTagClick($event)"
           ></app-tag-chip>
         }
       </div>
@@ -149,13 +149,30 @@ export class RecordingCardComponent {
     addIcons({ play, heart, heartOutline });
   }
 
+  onCardClick(event: Event): void {
+    // Only emit cardClick if no other handler caught it
+    this.cardClick.emit(this.recording);
+  }
+
+  onUserClick(event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.userClick.emit(this.recording.user);
+  }
+
+  onTagClick(tagName: string): void {
+    this.tagClick.emit({ name: tagName });
+  }
+
   playClick(event: Event): void {
     event.stopPropagation();
+    event.preventDefault();
     this.onPlay.emit(this.recording);
   }
 
   likeClick(event: Event): void {
     event.stopPropagation();
+    event.preventDefault();
     this.onLike.emit(this.recording);
   }
 }

@@ -1,8 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { IonContent } from '@ionic/angular/standalone';
-import { MockDataService } from '../../services/mock-data.service';
+import { IonContent, IonSpinner } from '@ionic/angular/standalone';
+import { RecordingsApiService } from '../../services/recordings-api.service';
+import { TagsApiService } from '../../services/tags-api.service';
 import { Recording, Tag } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
@@ -10,7 +11,7 @@ import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
 @Component({
   selector: 'app-explore',
   standalone: true,
-  imports: [CommonModule, IonContent, RecordingCardComponent, TagChipComponent],
+  imports: [CommonModule, IonContent, IonSpinner, RecordingCardComponent, TagChipComponent],
   template: `
     <ion-content [fullscreen]="true">
       <div class="container">
@@ -22,7 +23,7 @@ import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
             [selected]="!selectedTag()"
             (chipClick)="clearFilter()"
           ></app-tag-chip>
-          @for (tag of tags; track tag.id) {
+          @for (tag of tags(); track tag.id) {
             <app-tag-chip
               [name]="tag.name"
               [selected]="selectedTag() === tag.name"
@@ -33,21 +34,28 @@ import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
         </div>
 
         <div class="recordings-list">
-          @for (recording of filteredRecordings(); track recording.id; let i = $index) {
-            <app-recording-card
-              [recording]="recording"
-              [style.animation-delay.ms]="i * 50"
-              (cardClick)="openRecording($event)"
-              (userClick)="openUser($event)"
-              (tagClick)="selectTag($event.name)"
-              (onLike)="toggleLike($event)"
-            ></app-recording-card>
-          }
-
-          @if (filteredRecordings().length === 0) {
-            <div class="empty-state">
-              <p>No recordings found</p>
+          @if (isLoading()) {
+            <div class="loading-state">
+              <ion-spinner name="crescent"></ion-spinner>
             </div>
+          } @else {
+            @for (recording of recordings(); track recording.id; let i = $index) {
+              <app-recording-card
+                [recording]="recording"
+                [style.animation-delay.ms]="i * 50"
+                (cardClick)="openRecording($event)"
+                (userClick)="openUser($event)"
+                (tagClick)="selectTag($event.name)"
+                (onLike)="toggleLike($event)"
+                (onPlay)="openRecording($event)"
+              ></app-recording-card>
+            }
+
+            @if (recordings().length === 0) {
+              <div class="empty-state">
+                <p>No recordings found</p>
+              </div>
+            }
           }
         </div>
       </div>
@@ -88,6 +96,12 @@ import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
         color: var(--color-text-tertiary);
       }
 
+      .loading-state {
+        display: flex;
+        justify-content: center;
+        padding: 60px 20px;
+      }
+
       @keyframes fadeSlideUp {
         from {
           opacity: 0;
@@ -101,27 +115,56 @@ import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
     `,
   ],
 })
-export class ExplorePage {
+export class ExplorePage implements OnInit {
   private router = inject(Router);
-  private mockData = inject(MockDataService);
+  private recordingsApi = inject(RecordingsApiService);
+  private tagsApi = inject(TagsApiService);
 
-  tags = this.mockData.getTags().slice(0, 8);
+  tags = signal<Tag[]>([]);
   selectedTag = signal<string | null>(null);
+  recordings = signal<Recording[]>([]);
+  isLoading = signal(false);
 
-  filteredRecordings = signal<Recording[]>(this.mockData.getRecordings());
+  ngOnInit(): void {
+    this.loadTags();
+    this.loadRecordings();
+  }
+
+  private loadTags(): void {
+    this.tagsApi.getTags(10).subscribe({
+      next: (tags) => this.tags.set(tags),
+      error: () => {} // Silently fail for tags
+    });
+  }
+
+  loadRecordings(): void {
+    this.isLoading.set(true);
+    const tag = this.selectedTag();
+
+    this.recordingsApi.getRecordings({ tag: tag || undefined, limit: 50 }).subscribe({
+      next: (result) => {
+        this.recordings.set(result.items);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.recordings.set([]);
+        this.isLoading.set(false);
+      }
+    });
+  }
 
   selectTag(tagName: string): void {
     if (this.selectedTag() === tagName) {
       this.clearFilter();
     } else {
       this.selectedTag.set(tagName);
-      this.filteredRecordings.set(this.mockData.getRecordings({ tag: tagName }));
+      this.loadRecordings();
     }
   }
 
   clearFilter(): void {
     this.selectedTag.set(null);
-    this.filteredRecordings.set(this.mockData.getRecordings());
+    this.loadRecordings();
   }
 
   openRecording(recording: Recording): void {
@@ -133,11 +176,21 @@ export class ExplorePage {
   }
 
   toggleLike(recording: Recording): void {
-    this.mockData.toggleLike(recording.id);
-    // Refresh the list to reflect the change
-    const tag = this.selectedTag();
-    this.filteredRecordings.set(
-      tag ? this.mockData.getRecordings({ tag }) : this.mockData.getRecordings()
-    );
+    const action = recording.isLiked
+      ? this.recordingsApi.unlikeRecording(recording.id)
+      : this.recordingsApi.likeRecording(recording.id);
+
+    action.subscribe({
+      next: (result) => {
+        // Update the recording in the list
+        this.recordings.update(recordings =>
+          recordings.map(r =>
+            r.id === recording.id
+              ? { ...r, isLiked: result.liked, likesCount: r.likesCount + (result.liked ? 1 : -1) }
+              : r
+          )
+        );
+      }
+    });
   }
 }

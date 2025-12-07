@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -10,10 +10,11 @@ import {
   IonBackButton,
 } from '@ionic/angular/standalone';
 import { RecordingStateService } from '../../services/recording-state.service';
-import { MockDataService } from '../../services/mock-data.service';
+import { RecordingsApiService } from '../../services/recordings-api.service';
 import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
 import { WaveformComponent } from '../../components/waveform/waveform.component';
 import { MovementBadgeComponent } from '../../components/movement-badge/movement-badge.component';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-tags-input',
@@ -99,6 +100,10 @@ import { MovementBadgeComponent } from '../../components/movement-badge/movement
             [height]="50"
           ></app-waveform>
         </div>
+
+        @if (error()) {
+          <p class="error">{{ error() }}</p>
+        }
 
         <button
           class="upload-button"
@@ -220,6 +225,13 @@ import { MovementBadgeComponent } from '../../components/movement-badge/movement
         margin-bottom: 24px;
       }
 
+      .error {
+        color: #ff6b6b;
+        font-size: 14px;
+        margin: 0 0 12px 0;
+        text-align: center;
+      }
+
       .upload-button {
         width: 100%;
         padding: 16px;
@@ -249,9 +261,10 @@ import { MovementBadgeComponent } from '../../components/movement-badge/movement
 export class TagsInputPage {
   private router = inject(Router);
   state = inject(RecordingStateService);
-  private mockData = inject(MockDataService);
+  private recordingsApi = inject(RecordingsApiService);
 
   newTag = '';
+  error = signal<string | null>(null);
 
   get canAddTag(): boolean {
     const normalized = this.newTag.trim().toLowerCase();
@@ -292,21 +305,28 @@ export class TagsInputPage {
     if (!this.canUpload) return;
 
     this.state.startUpload();
-
-    // Simulate upload delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    this.error.set(null);
 
     const draft = this.state.getDraft();
-    this.mockData.addRecording({
-      movement: draft.movement!,
-      durationSeconds: this.state.duration(),
-      audioUrl: this.state.audioUrl(),
-      waveformData: draft.waveformData,
-      tags: draft.tags.map((name) => ({ id: '', name, isOriginal: true })),
-      title: draft.title || undefined,
-    });
 
-    this.state.reset();
-    this.router.navigate(['/explore']);
+    try {
+      await firstValueFrom(
+        this.recordingsApi.createRecording(
+          draft.audioBlob!,
+          draft.movement!,
+          this.state.duration(),
+          draft.tags,
+          draft.waveformData,
+          draft.title || undefined
+        )
+      );
+
+      this.state.reset();
+      this.router.navigate(['/explore']);
+    } catch (err: any) {
+      const message = err?.error?.error || err?.message || 'Upload failed';
+      this.error.set(message);
+      this.state.goToTagging(); // Reset phase back from uploading
+    }
   }
 }

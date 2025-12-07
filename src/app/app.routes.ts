@@ -1,10 +1,28 @@
 import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { AuthService } from './services/auth.service';
+import { Router } from '@angular/router';
+
+const authGuard = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  if (auth.isAuthenticated()) {
+    return true;
+  }
+  return router.parseUrl('/auth');
+};
 
 export const routes: Routes = [
+  {
+    path: 'auth',
+    loadComponent: () =>
+      import('./pages/auth/auth.page').then((m) => m.AuthPage),
+  },
   {
     path: '',
     loadChildren: () =>
       import('./tabs/tabs.routes').then((m) => m.tabsRoutes),
+    canActivate: [authGuard],
   },
   {
     path: 'recording/:id',

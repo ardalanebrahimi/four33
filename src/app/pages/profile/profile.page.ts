@@ -1,10 +1,13 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { IonContent, IonIcon } from '@ionic/angular/standalone';
+import { IonContent, IonIcon, IonSpinner } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { heart, personAdd } from 'ionicons/icons';
-import { MockDataService } from '../../services/mock-data.service';
+import { AuthService } from '../../services/auth.service';
+import { UsersApiService } from '../../services/users-api.service';
+import { RecordingsApiService } from '../../services/recordings-api.service';
+import { TagsApiService } from '../../services/tags-api.service';
 import { Recording, User, Tag, Activity } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.component';
@@ -19,184 +22,199 @@ type ProfileTab = 'sounds' | 'following' | 'followers' | 'activity';
     CommonModule,
     IonContent,
     IonIcon,
+    IonSpinner,
     RecordingCardComponent,
     UserAvatarComponent,
     TagChipComponent,
   ],
   template: `
     <ion-content [fullscreen]="true">
-      <div class="container">
-        <div class="profile-header">
-          <app-user-avatar [username]="currentUser.username" [size]="80"></app-user-avatar>
-          <h1 class="username">{{ currentUser.username }}</h1>
-          <div class="stats">
-            <div class="stat">
-              <span class="stat-value">{{ currentUser.recordingsCount }}</span>
-              <span class="stat-label">sounds</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value">{{ followers.length }}</span>
-              <span class="stat-label">followers</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value">{{ following.length + followedTags.length }}</span>
-              <span class="stat-label">following</span>
+      @if (!auth.isAuthenticated()) {
+        <div class="login-prompt">
+          <h2>Sign in to view your profile</h2>
+          <button class="login-btn" (click)="goToLogin()">SIGN IN</button>
+        </div>
+      } @else if (isLoading()) {
+        <div class="loading-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      } @else {
+        <div class="container">
+          <div class="profile-header">
+            <app-user-avatar [username]="currentUser()?.username || ''" [size]="80"></app-user-avatar>
+            <h1 class="username">{{ currentUser()?.username }}</h1>
+            <div class="stats">
+              <div class="stat">
+                <span class="stat-value">{{ currentUser()?.recordingsCount || 0 }}</span>
+                <span class="stat-label">sounds</span>
+              </div>
+              <div class="stat">
+                <span class="stat-value">{{ currentUser()?.followersCount || 0 }}</span>
+                <span class="stat-label">followers</span>
+              </div>
+              <div class="stat">
+                <span class="stat-value">{{ currentUser()?.followingCount || 0 }}</span>
+                <span class="stat-label">following</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="tabs">
-          <button
-            class="tab"
-            [class.active]="activeTab() === 'sounds'"
-            (click)="activeTab.set('sounds')"
-          >
-            SOUNDS
-          </button>
-          <button
-            class="tab"
-            [class.active]="activeTab() === 'following'"
-            (click)="activeTab.set('following')"
-          >
-            FOLLOWING
-          </button>
-          <button
-            class="tab"
-            [class.active]="activeTab() === 'followers'"
-            (click)="activeTab.set('followers')"
-          >
-            FOLLOWERS
-          </button>
-          <button
-            class="tab"
-            [class.active]="activeTab() === 'activity'"
-            (click)="activeTab.set('activity')"
-          >
-            ACTIVITY
-          </button>
-        </div>
+          <div class="tabs">
+            <button
+              class="tab"
+              [class.active]="activeTab() === 'sounds'"
+              (click)="selectTab('sounds')"
+            >
+              SOUNDS
+            </button>
+            <button
+              class="tab"
+              [class.active]="activeTab() === 'following'"
+              (click)="selectTab('following')"
+            >
+              FOLLOWING
+            </button>
+            <button
+              class="tab"
+              [class.active]="activeTab() === 'followers'"
+              (click)="selectTab('followers')"
+            >
+              FOLLOWERS
+            </button>
+            <button
+              class="tab"
+              [class.active]="activeTab() === 'activity'"
+              (click)="selectTab('activity')"
+            >
+              ACTIVITY
+            </button>
+          </div>
 
-        <div class="tab-content">
-          @switch (activeTab()) {
-            @case ('sounds') {
-              @if (userRecordings.length > 0) {
-                <div class="recordings-list">
-                  @for (recording of userRecordings; track recording.id) {
-                    <app-recording-card
-                      [recording]="recording"
-                      (cardClick)="openRecording($event)"
-                    ></app-recording-card>
-                  }
-                </div>
-              } @else {
-                <div class="empty-state">
-                  <p>Record your first sound</p>
-                </div>
-              }
-            }
-
-            @case ('following') {
-              @if (followedTags.length > 0) {
-                <div class="section">
-                  <p class="section-label">TAGS</p>
-                  <div class="tags-list">
-                    @for (tag of followedTags; track tag.id) {
-                      <app-tag-chip
-                        [name]="tag.name"
-                        [selected]="true"
-                        (chipClick)="openTag($event)"
-                      ></app-tag-chip>
+          <div class="tab-content">
+            @switch (activeTab()) {
+              @case ('sounds') {
+                @if (userRecordings().length > 0) {
+                  <div class="recordings-list">
+                    @for (recording of userRecordings(); track recording.id) {
+                      <app-recording-card
+                        [recording]="recording"
+                        (cardClick)="openRecording($event)"
+                        (onPlay)="openRecording($event)"
+                      ></app-recording-card>
                     }
                   </div>
-                </div>
+                } @else {
+                  <div class="empty-state">
+                    <p>Record your first sound</p>
+                  </div>
+                }
               }
 
-              @if (following.length > 0) {
-                <div class="section">
-                  <p class="section-label">PEOPLE</p>
+              @case ('following') {
+                @if (followedTags().length > 0) {
+                  <div class="section">
+                    <p class="section-label">TAGS</p>
+                    <div class="tags-list">
+                      @for (tag of followedTags(); track tag.id) {
+                        <app-tag-chip
+                          [name]="tag.name"
+                          [selected]="true"
+                          (chipClick)="openTag($event)"
+                        ></app-tag-chip>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (following().length > 0) {
+                  <div class="section">
+                    <p class="section-label">PEOPLE</p>
+                    <div class="users-list">
+                      @for (user of following(); track user.id) {
+                        <div class="user-row" (click)="openUser(user)">
+                          <app-user-avatar [username]="user.username" [size]="40"></app-user-avatar>
+                          <span class="user-name">{{ user.username }}</span>
+                          <button
+                            class="follow-btn following"
+                            (click)="toggleFollowUser(user, $event)"
+                          >
+                            FOLLOWING
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (followedTags().length === 0 && following().length === 0) {
+                  <div class="empty-state">
+                    <p>Not following anyone yet</p>
+                  </div>
+                }
+              }
+
+              @case ('followers') {
+                @if (followers().length > 0) {
                   <div class="users-list">
-                    @for (user of following; track user.id) {
+                    @for (user of followers(); track user.id) {
                       <div class="user-row" (click)="openUser(user)">
                         <app-user-avatar [username]="user.username" [size]="40"></app-user-avatar>
                         <span class="user-name">{{ user.username }}</span>
                         <button
-                          class="follow-btn following"
+                          class="follow-btn"
+                          [class.following]="user.isFollowing"
                           (click)="toggleFollowUser(user, $event)"
                         >
-                          FOLLOWING
+                          {{ user.isFollowing ? 'FOLLOWING' : 'FOLLOW' }}
                         </button>
                       </div>
                     }
                   </div>
-                </div>
+                } @else {
+                  <div class="empty-state">
+                    <p>No followers yet</p>
+                  </div>
+                }
               }
 
-              @if (followedTags.length === 0 && following.length === 0) {
-                <div class="empty-state">
-                  <p>Not following anyone yet</p>
-                </div>
-              }
-            }
-
-            @case ('followers') {
-              @if (followers.length > 0) {
-                <div class="users-list">
-                  @for (user of followers; track user.id) {
-                    <div class="user-row" (click)="openUser(user)">
-                      <app-user-avatar [username]="user.username" [size]="40"></app-user-avatar>
-                      <span class="user-name">{{ user.username }}</span>
-                      <button
-                        class="follow-btn"
-                        [class.following]="user.isFollowing"
-                        (click)="toggleFollowUser(user, $event)"
-                      >
-                        {{ user.isFollowing ? 'FOLLOWING' : 'FOLLOW' }}
-                      </button>
-                    </div>
-                  }
-                </div>
-              } @else {
-                <div class="empty-state">
-                  <p>No followers yet</p>
-                </div>
-              }
-            }
-
-            @case ('activity') {
-              @if (activities.length > 0) {
-                <div class="activity-list">
-                  @for (activity of activities; track activity.id) {
-                    <div class="activity-item">
-                      <div class="activity-icon">
-                        @if (activity.type === 'like') {
-                          <ion-icon name="heart"></ion-icon>
-                        } @else {
-                          <ion-icon name="person-add"></ion-icon>
-                        }
-                      </div>
-                      <div class="activity-content">
-                        <p class="activity-text">
-                          <strong (click)="openUser(activity.user)">{{ activity.user.username }}</strong>
+              @case ('activity') {
+                @if (activities().length > 0) {
+                  <div class="activity-list">
+                    @for (activity of activities(); track activity.id) {
+                      <div class="activity-item">
+                        <div class="activity-icon">
                           @if (activity.type === 'like') {
-                            liked your morning capture
+                            <ion-icon name="heart"></ion-icon>
                           } @else {
-                            started following you
+                            <ion-icon name="person-add"></ion-icon>
                           }
-                        </p>
-                        <span class="activity-time">{{ activity.timeAgo }}</span>
+                        </div>
+                        <div class="activity-content">
+                          <p class="activity-text">
+                            <strong (click)="openUser(activity.user)">{{ activity.user.username }}</strong>
+                            @if (activity.type === 'like') {
+                              liked your recording
+                            } @else {
+                              started following you
+                            }
+                          </p>
+                          <span class="activity-time">{{ activity.timeAgo }}</span>
+                        </div>
                       </div>
-                    </div>
-                  }
-                </div>
-              } @else {
-                <div class="empty-state">
-                  <p>No activity yet</p>
-                </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="empty-state">
+                    <p>No activity yet</p>
+                  </div>
+                }
               }
             }
-          }
+          </div>
+
+          <button class="logout-btn" (click)="logout()">SIGN OUT</button>
         </div>
-      </div>
+      }
     </ion-content>
   `,
   styles: [
@@ -381,24 +399,136 @@ type ProfileTab = 'sounds' | 'following' | 'followers' | 'activity';
         padding: 60px 20px;
         color: var(--color-text-tertiary);
       }
+
+      .loading-state {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 50vh;
+      }
+
+      .login-prompt {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 50vh;
+        gap: 24px;
+        padding: 20px;
+        text-align: center;
+
+        h2 {
+          font-size: 18px;
+          font-weight: 500;
+          color: var(--color-text-secondary);
+          margin: 0;
+        }
+      }
+
+      .login-btn {
+        padding: 14px 32px;
+        background: var(--color-text-primary);
+        border: none;
+        border-radius: 8px;
+        color: var(--color-bg);
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 1px;
+        cursor: pointer;
+      }
+
+      .logout-btn {
+        display: block;
+        width: 100%;
+        padding: 14px;
+        background: transparent;
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        color: var(--color-text-secondary);
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 1px;
+        cursor: pointer;
+        margin-top: 32px;
+      }
     `,
   ],
 })
-export class ProfilePage {
+export class ProfilePage implements OnInit {
   private router = inject(Router);
-  private mockData = inject(MockDataService);
+  auth = inject(AuthService);
+  private usersApi = inject(UsersApiService);
+  private recordingsApi = inject(RecordingsApiService);
+  private tagsApi = inject(TagsApiService);
 
   activeTab = signal<ProfileTab>('sounds');
+  isLoading = signal(false);
 
-  currentUser = this.mockData.getCurrentUser();
-  userRecordings = this.mockData.getRecordings({ userId: this.currentUser.id });
-  followers = this.mockData.getFollowers();
-  following = this.mockData.getFollowing();
-  followedTags = this.mockData.getFollowedTags();
-  activities = this.mockData.getActivities();
+  currentUser = signal<User | null>(null);
+  userRecordings = signal<Recording[]>([]);
+  followers = signal<User[]>([]);
+  following = signal<User[]>([]);
+  followedTags = signal<Tag[]>([]);
+  activities = signal<Activity[]>([]);
 
   constructor() {
     addIcons({ heart, personAdd });
+  }
+
+  ngOnInit(): void {
+    if (this.auth.isAuthenticated()) {
+      this.loadProfile();
+    }
+  }
+
+  private loadProfile(): void {
+    this.isLoading.set(true);
+    this.usersApi.getCurrentUser().subscribe({
+      next: (user) => {
+        this.currentUser.set(user);
+        this.loadTabData('sounds');
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  selectTab(tab: ProfileTab): void {
+    this.activeTab.set(tab);
+    this.loadTabData(tab);
+  }
+
+  private loadTabData(tab: ProfileTab): void {
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
+
+    switch (tab) {
+      case 'sounds':
+        this.recordingsApi.getRecordings({ userId }).subscribe({
+          next: (result) => this.userRecordings.set(result.items)
+        });
+        break;
+      case 'followers':
+        this.usersApi.getFollowers(userId).subscribe({
+          next: (result) => this.followers.set(result.items)
+        });
+        break;
+      case 'following':
+        this.usersApi.getFollowing(userId).subscribe({
+          next: (result) => this.following.set(result.items)
+        });
+        this.tagsApi.getFollowedTags().subscribe({
+          next: (tags) => this.followedTags.set(tags)
+        });
+        break;
+      case 'activity':
+        this.usersApi.getActivity().subscribe({
+          next: (activities) => this.activities.set(activities)
+        });
+        break;
+    }
   }
 
   openRecording(recording: Recording): void {
@@ -415,9 +545,33 @@ export class ProfilePage {
 
   toggleFollowUser(user: User, event: Event): void {
     event.stopPropagation();
-    this.mockData.toggleFollowUser(user.id);
-    // Refresh lists
-    this.followers = this.mockData.getFollowers();
-    this.following = this.mockData.getFollowing();
+
+    const action = user.isFollowing
+      ? this.usersApi.unfollowUser(user.id)
+      : this.usersApi.followUser(user.id);
+
+    action.subscribe({
+      next: (result) => {
+        // Update in followers list
+        this.followers.update(users =>
+          users.map(u =>
+            u.id === user.id ? { ...u, isFollowing: result.following } : u
+          )
+        );
+        // Update in following list
+        if (!result.following) {
+          this.following.update(users => users.filter(u => u.id !== user.id));
+        }
+      }
+    });
+  }
+
+  goToLogin(): void {
+    this.router.navigate(['/auth']);
+  }
+
+  async logout(): Promise<void> {
+    await this.auth.logout();
+    this.router.navigate(['/auth']);
   }
 }

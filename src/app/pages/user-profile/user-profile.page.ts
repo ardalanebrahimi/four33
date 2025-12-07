@@ -7,8 +7,10 @@ import {
   IonToolbar,
   IonButtons,
   IonBackButton,
+  IonSpinner,
 } from '@ionic/angular/standalone';
-import { MockDataService } from '../../services/mock-data.service';
+import { UsersApiService } from '../../services/users-api.service';
+import { RecordingsApiService } from '../../services/recordings-api.service';
 import { Recording, User } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.component';
@@ -23,6 +25,7 @@ import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.co
     IonToolbar,
     IonButtons,
     IonBackButton,
+    IonSpinner,
     RecordingCardComponent,
     UserAvatarComponent,
   ],
@@ -36,7 +39,11 @@ import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.co
     </ion-header>
 
     <ion-content [fullscreen]="true">
-      @if (user()) {
+      @if (isLoading()) {
+        <div class="loading-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      } @else if (user()) {
         <div class="container">
           <div class="profile-header">
             <app-user-avatar [username]="user()!.username" [size]="80"></app-user-avatar>
@@ -168,38 +175,75 @@ import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.co
         padding: 40px;
         color: var(--color-text-tertiary);
       }
+
+      .loading-state {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 50vh;
+      }
     `,
   ],
 })
 export class UserProfilePage implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private mockData = inject(MockDataService);
+  private usersApi = inject(UsersApiService);
+  private recordingsApi = inject(RecordingsApiService);
 
   user = signal<User | null>(null);
   recordings = signal<Recording[]>([]);
+  isLoading = signal(false);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
-      const foundUser = this.mockData.getUser(id);
-      if (foundUser) {
-        this.user.set(foundUser);
-        this.recordings.set(this.mockData.getRecordings({ userId: id }));
-      }
+      this.loadUser(id);
     }
+  }
+
+  private loadUser(id: string): void {
+    this.isLoading.set(true);
+    this.usersApi.getUser(id).subscribe({
+      next: (user) => {
+        this.user.set(user);
+        this.loadRecordings(id);
+      },
+      error: () => {
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  private loadRecordings(userId: string): void {
+    this.recordingsApi.getRecordings({ userId }).subscribe({
+      next: (result) => {
+        this.recordings.set(result.items);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.isLoading.set(false);
+      }
+    });
   }
 
   toggleFollow(): void {
     const u = this.user();
-    if (u) {
-      this.mockData.toggleFollowUser(u.id);
-      this.user.set({
-        ...u,
-        isFollowing: !u.isFollowing,
-        followersCount: u.followersCount + (u.isFollowing ? -1 : 1),
-      });
-    }
+    if (!u) return;
+
+    const action = u.isFollowing
+      ? this.usersApi.unfollowUser(u.id)
+      : this.usersApi.followUser(u.id);
+
+    action.subscribe({
+      next: (result) => {
+        this.user.set({
+          ...u,
+          isFollowing: result.following,
+          followersCount: u.followersCount + (result.following ? 1 : -1),
+        });
+      }
+    });
   }
 
   openRecording(recording: Recording): void {
@@ -207,10 +251,20 @@ export class UserProfilePage implements OnInit {
   }
 
   toggleLike(recording: Recording): void {
-    this.mockData.toggleLike(recording.id);
-    const userId = this.user()?.id;
-    if (userId) {
-      this.recordings.set(this.mockData.getRecordings({ userId }));
-    }
+    const action = recording.isLiked
+      ? this.recordingsApi.unlikeRecording(recording.id)
+      : this.recordingsApi.likeRecording(recording.id);
+
+    action.subscribe({
+      next: (result) => {
+        this.recordings.update(recs =>
+          recs.map(r =>
+            r.id === recording.id
+              ? { ...r, isLiked: result.liked, likesCount: r.likesCount + (result.liked ? 1 : -1) }
+              : r
+          )
+        );
+      }
+    });
   }
 }

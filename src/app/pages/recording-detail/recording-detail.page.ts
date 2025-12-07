@@ -9,10 +9,12 @@ import {
   IonButtons,
   IonBackButton,
   IonIcon,
+  IonSpinner,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { play, pause, heart, heartOutline } from 'ionicons/icons';
-import { MockDataService } from '../../services/mock-data.service';
+import { RecordingsApiService } from '../../services/recordings-api.service';
+import { UsersApiService } from '../../services/users-api.service';
 import { Recording } from '../../models';
 import { WaveformComponent } from '../../components/waveform/waveform.component';
 import { MovementBadgeComponent } from '../../components/movement-badge/movement-badge.component';
@@ -31,6 +33,7 @@ import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.co
     IonButtons,
     IonBackButton,
     IonIcon,
+    IonSpinner,
     WaveformComponent,
     MovementBadgeComponent,
     TagChipComponent,
@@ -46,7 +49,11 @@ import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.co
     </ion-header>
 
     <ion-content [fullscreen]="true">
-      @if (recording()) {
+      @if (isLoading()) {
+        <div class="loading-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      } @else if (recording()) {
         <div class="container">
           <div class="user-section">
             <app-user-avatar
@@ -292,20 +299,30 @@ import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.co
           opacity: 0.3;
         }
       }
+
+      .loading-state {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 50vh;
+      }
     `,
   ],
 })
 export class RecordingDetailPage implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private mockData = inject(MockDataService);
+  private recordingsApi = inject(RecordingsApiService);
+  private usersApi = inject(UsersApiService);
 
   recording = signal<Recording | null>(null);
+  isLoading = signal(false);
   isPlaying = signal(false);
   playbackProgress = signal(0);
   newTag = '';
 
   private audioElement: HTMLAudioElement | null = null;
+  private playbackInterval: any;
 
   constructor() {
     addIcons({ play, pause, heart, heartOutline });
@@ -314,49 +331,105 @@ export class RecordingDetailPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
-      const rec = this.mockData.getRecording(id);
-      if (rec) {
-        this.recording.set(rec);
-      }
+      this.loadRecording(id);
     }
   }
 
+  private loadRecording(id: string): void {
+    this.isLoading.set(true);
+    this.recordingsApi.getRecording(id).subscribe({
+      next: (rec) => {
+        this.recording.set(rec);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.isLoading.set(false);
+      }
+    });
+  }
+
   togglePlayback(): void {
-    // For demo, we don't have actual audio, so just toggle state
-    this.isPlaying.update((v) => !v);
+    const rec = this.recording();
+    if (!rec) return;
 
     if (this.isPlaying()) {
-      // Simulate playback progress
-      const interval = setInterval(() => {
-        this.playbackProgress.update((p) => {
-          if (p >= 100) {
-            clearInterval(interval);
+      // Pause
+      if (this.audioElement) {
+        this.audioElement.pause();
+      }
+      clearInterval(this.playbackInterval);
+      this.isPlaying.set(false);
+    } else {
+      // Play
+      if (rec.audioUrl) {
+        if (!this.audioElement) {
+          this.audioElement = new Audio(rec.audioUrl);
+          this.audioElement.addEventListener('ended', () => {
             this.isPlaying.set(false);
-            return 0;
-          }
-          return p + 2;
-        });
-      }, 100);
+            this.playbackProgress.set(0);
+            clearInterval(this.playbackInterval);
+          });
+          this.audioElement.addEventListener('timeupdate', () => {
+            if (this.audioElement) {
+              const progress = (this.audioElement.currentTime / this.audioElement.duration) * 100;
+              this.playbackProgress.set(progress);
+            }
+          });
+        }
+        this.audioElement.play();
+        this.isPlaying.set(true);
+      } else {
+        // Simulate playback if no audio URL
+        this.isPlaying.set(true);
+        this.playbackInterval = setInterval(() => {
+          this.playbackProgress.update((p) => {
+            if (p >= 100) {
+              clearInterval(this.playbackInterval);
+              this.isPlaying.set(false);
+              return 0;
+            }
+            return p + 2;
+          });
+        }, 100);
+      }
     }
   }
 
   toggleLike(): void {
     const rec = this.recording();
-    if (rec) {
-      this.mockData.toggleLike(rec.id);
-      this.recording.set({ ...rec, isLiked: !rec.isLiked, likesCount: rec.likesCount + (rec.isLiked ? -1 : 1) });
-    }
+    if (!rec) return;
+
+    const action = rec.isLiked
+      ? this.recordingsApi.unlikeRecording(rec.id)
+      : this.recordingsApi.likeRecording(rec.id);
+
+    action.subscribe({
+      next: (result) => {
+        this.recording.set({
+          ...rec,
+          isLiked: result.liked,
+          likesCount: rec.likesCount + (result.liked ? 1 : -1)
+        });
+      }
+    });
   }
 
   toggleFollow(): void {
     const rec = this.recording();
-    if (rec) {
-      this.mockData.toggleFollowUser(rec.user.id);
-      this.recording.set({
-        ...rec,
-        user: { ...rec.user, isFollowing: !rec.user.isFollowing },
-      });
-    }
+    if (!rec) return;
+
+    const action = rec.user.isFollowing
+      ? this.usersApi.unfollowUser(rec.user.id)
+      : this.usersApi.followUser(rec.user.id);
+
+    action.subscribe({
+      next: (result) => {
+        this.recording.set({
+          ...rec,
+          user: { ...rec.user, isFollowing: result.following }
+        });
+      }
+    });
   }
 
   addTag(): void {
@@ -364,14 +437,17 @@ export class RecordingDetailPage implements OnInit, OnDestroy {
     if (!trimmed) return;
 
     const rec = this.recording();
-    if (rec) {
-      const newTagObj = { id: String(Date.now()), name: trimmed, isOriginal: false };
-      this.recording.set({
-        ...rec,
-        tags: [...rec.tags, newTagObj],
-      });
-      this.newTag = '';
-    }
+    if (!rec) return;
+
+    this.recordingsApi.addTag(rec.id, trimmed).subscribe({
+      next: (tag) => {
+        this.recording.set({
+          ...rec,
+          tags: [...rec.tags, { id: tag.id, name: tag.name, isOriginal: false }]
+        });
+        this.newTag = '';
+      }
+    });
   }
 
   openTag(tagName: string): void {
@@ -388,6 +464,8 @@ export class RecordingDetailPage implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.audioElement) {
       this.audioElement.pause();
+      this.audioElement = null;
     }
+    clearInterval(this.playbackInterval);
   }
 }
