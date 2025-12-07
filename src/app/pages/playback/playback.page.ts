@@ -1,7 +1,7 @@
-import { Component, inject, OnDestroy } from '@angular/core';
+import { Component, inject, OnDestroy, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { IonContent } from '@ionic/angular/standalone';
+import { IonContent, IonRange } from '@ionic/angular/standalone';
 import { RecordingStateService } from '../../services/recording-state.service';
 import { WaveformComponent } from '../../components/waveform/waveform.component';
 import { MovementBadgeComponent } from '../../components/movement-badge/movement-badge.component';
@@ -9,7 +9,7 @@ import { MovementBadgeComponent } from '../../components/movement-badge/movement
 @Component({
   selector: 'app-playback',
   standalone: true,
-  imports: [CommonModule, IonContent, WaveformComponent, MovementBadgeComponent],
+  imports: [CommonModule, IonContent, IonRange, WaveformComponent, MovementBadgeComponent],
   template: `
     <ion-content [fullscreen]="true">
       <div class="container">
@@ -23,7 +23,7 @@ import { MovementBadgeComponent } from '../../components/movement-badge/movement
           ></app-movement-badge>
         }
 
-        <div class="waveform-section">
+        <div class="waveform-section" (click)="onWaveformClick($event)" #waveformContainer>
           <app-waveform
             [data]="state.waveformData()"
             [progress]="playbackProgress"
@@ -32,11 +32,22 @@ import { MovementBadgeComponent } from '../../components/movement-badge/movement
           ></app-waveform>
         </div>
 
+        <div class="seek-bar">
+          <span class="time-label">{{ formatTime(currentTime) }}</span>
+          <ion-range
+            [min]="0"
+            [max]="duration"
+            [value]="currentTime"
+            (ionInput)="onSeek($event)"
+            [pin]="false"
+          ></ion-range>
+          <span class="time-label">{{ formatTime(duration) }}</span>
+        </div>
+
         <div class="playback-controls">
           <button class="play-button" (click)="togglePlayback()">
             {{ isPlaying ? '⏸' : '▶' }}
           </button>
-          <span class="mic-indicator">🎙</span>
         </div>
 
         <div class="action-buttons">
@@ -75,7 +86,35 @@ import { MovementBadgeComponent } from '../../components/movement-badge/movement
         flex: 1;
         display: flex;
         align-items: center;
-        margin: 40px 0;
+        margin: 40px 0 20px;
+        cursor: pointer;
+      }
+
+      .seek-bar {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+
+        ion-range {
+          flex: 1;
+          --bar-height: 4px;
+          --bar-background: var(--color-border);
+          --bar-background-active: var(--color-text-primary);
+          --knob-size: 16px;
+          --knob-background: var(--color-text-primary);
+          --pin-background: var(--color-text-primary);
+          padding: 0;
+        }
+      }
+
+      .time-label {
+        font-size: 12px;
+        color: var(--color-text-secondary);
+        min-width: 40px;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
       }
 
       .playback-controls {
@@ -98,11 +137,6 @@ import { MovementBadgeComponent } from '../../components/movement-badge/movement
         &:hover {
           opacity: 0.9;
         }
-      }
-
-      .mic-indicator {
-        font-size: 20px;
-        opacity: 0.3;
       }
 
       .action-buttons {
@@ -136,34 +170,87 @@ import { MovementBadgeComponent } from '../../components/movement-badge/movement
   ],
 })
 export class PlaybackPage implements OnDestroy {
+  @ViewChild('waveformContainer') waveformContainer!: ElementRef<HTMLDivElement>;
+
   private router = inject(Router);
   state = inject(RecordingStateService);
 
   private audioElement: HTMLAudioElement | null = null;
   isPlaying = false;
   playbackProgress = 0;
+  currentTime = 0;
+  duration = 0;
 
-  togglePlayback(): void {
+  private initAudio(): void {
     if (!this.audioElement) {
       this.audioElement = new Audio(this.state.audioUrl());
+
+      this.audioElement.addEventListener('loadedmetadata', () => {
+        if (this.audioElement) {
+          this.duration = this.audioElement.duration;
+        }
+      });
+
       this.audioElement.addEventListener('timeupdate', () => {
         if (this.audioElement) {
+          this.currentTime = this.audioElement.currentTime;
           this.playbackProgress =
             (this.audioElement.currentTime / this.audioElement.duration) * 100;
         }
       });
+
       this.audioElement.addEventListener('ended', () => {
         this.isPlaying = false;
         this.playbackProgress = 0;
+        this.currentTime = 0;
       });
+
+      // Load to get duration
+      this.audioElement.load();
     }
+  }
+
+  togglePlayback(): void {
+    this.initAudio();
 
     if (this.isPlaying) {
-      this.audioElement.pause();
+      this.audioElement!.pause();
     } else {
-      this.audioElement.play();
+      this.audioElement!.play();
     }
     this.isPlaying = !this.isPlaying;
+  }
+
+  onSeek(event: any): void {
+    this.initAudio();
+    const value = event.detail.value;
+    if (this.audioElement && typeof value === 'number') {
+      this.audioElement.currentTime = value;
+      this.currentTime = value;
+      this.playbackProgress = (value / this.duration) * 100;
+    }
+  }
+
+  onWaveformClick(event: MouseEvent): void {
+    this.initAudio();
+    if (!this.audioElement || !this.waveformContainer) return;
+
+    const container = this.waveformContainer.nativeElement;
+    const rect = container.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const percentage = clickX / rect.width;
+    const newTime = percentage * this.duration;
+
+    this.audioElement.currentTime = newTime;
+    this.currentTime = newTime;
+    this.playbackProgress = percentage * 100;
+  }
+
+  formatTime(seconds: number): string {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
 
   startOver(): void {
@@ -185,6 +272,8 @@ export class PlaybackPage implements OnDestroy {
     }
     this.isPlaying = false;
     this.playbackProgress = 0;
+    this.currentTime = 0;
+    this.duration = 0;
   }
 
   ngOnDestroy(): void {

@@ -155,7 +155,12 @@ public class RecordingsController : ControllerBase
         {
             try
             {
-                waveform = System.Text.Json.JsonSerializer.Deserialize<int[]>(waveformData);
+                // Deserialize as nullable int array to handle any nulls, then filter them out
+                var rawWaveform = System.Text.Json.JsonSerializer.Deserialize<int?[]>(waveformData);
+                if (rawWaveform != null)
+                {
+                    waveform = rawWaveform.Where(x => x.HasValue).Select(x => x!.Value).ToArray();
+                }
             }
             catch { /* Ignore invalid waveform data */ }
         }

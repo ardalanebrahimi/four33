@@ -160,6 +160,7 @@ export class RecordPage implements OnDestroy {
   movements = Object.values(MOVEMENTS);
   showAllMovements = false;
   private recordingInterval: any;
+  private recordingStartTime: number = 0;
   private audioElement: HTMLAudioElement | null = null;
   isPlaying = false;
   playbackProgress = 0;
@@ -173,11 +174,13 @@ export class RecordPage implements OnDestroy {
       await this.audioService.startRecording();
       this.state.startRecording();
 
-      let elapsed = 0;
+      this.recordingStartTime = Date.now();
       const duration = this.state.duration();
 
       this.recordingInterval = setInterval(() => {
-        elapsed += 0.1;
+        // Use actual time elapsed instead of incrementing counter
+        // This ensures accurate timing even when tab is in background
+        const elapsed = (Date.now() - this.recordingStartTime) / 1000;
         const amplitude = this.audioService.getAmplitude();
         this.state.updateProgress(elapsed, amplitude);
 

@@ -22,7 +22,7 @@ if (string.IsNullOrEmpty(connectionString))
 else
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseNpgsql(connectionString));
+        options.UseNpgsql(connectionString, o => o.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
 }
 
 // JWT Settings
