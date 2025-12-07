@@ -1,0 +1,19 @@
+<div *ngIf="!isRecording && !recordingFinished" class="screen">
+  <button class="record-button" (click)="startRecording()">●</button>
+</div>
+
+<div *ngIf="isRecording" class="screen recording">
+  <div class="recording-animation">
+    <span>{{ countdown }}s</span>
+    <div class="progress-bar">
+      <div class="progress" [style.width]="progressWidth + '%'"></div>
+    </div>
+  </div>
+  <a class="cancel-link" (click)="cancelRecording()">Cancel</a>
+</div>
+
+<div *ngIf="recordingFinished" class="screen finished">
+  <button class="record-button disabled" disabled>●</button>
+  <audio controls [src]="audioUrl"></audio>
+  <button (click)="reset()" class="start-over">Start Over</button>
+</div>

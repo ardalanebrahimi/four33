@@ -1,3 +1,38 @@
 import { Routes } from '@angular/router';
 
-export const routes: Routes = [];
+export const routes: Routes = [
+  {
+    path: '',
+    loadChildren: () =>
+      import('./tabs/tabs.routes').then((m) => m.tabsRoutes),
+  },
+  {
+    path: 'recording/:id',
+    loadComponent: () =>
+      import('./pages/recording-detail/recording-detail.page').then(
+        (m) => m.RecordingDetailPage
+      ),
+  },
+  {
+    path: 'tag/:name',
+    loadComponent: () =>
+      import('./pages/tag-detail/tag-detail.page').then((m) => m.TagDetailPage),
+  },
+  {
+    path: 'user/:id',
+    loadComponent: () =>
+      import('./pages/user-profile/user-profile.page').then(
+        (m) => m.UserProfilePage
+      ),
+  },
+  {
+    path: 'playback',
+    loadComponent: () =>
+      import('./pages/playback/playback.page').then((m) => m.PlaybackPage),
+  },
+  {
+    path: 'tags-input',
+    loadComponent: () =>
+      import('./pages/tags-input/tags-input.page').then((m) => m.TagsInputPage),
+  },
+];

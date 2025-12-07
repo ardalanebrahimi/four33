@@ -1,0 +1,68 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.record-button {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: none;
+  background-color: red;
+  color: white;
+  font-size: 30px;
+  cursor: pointer;
+  outline: none;
+
+  &.disabled {
+    background-color: gray;
+    cursor: not-allowed;
+  }
+}
+
+.recording-animation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 50%;
+}
+
+.progress-bar {
+  width: 80%;
+  height: 10px;
+  background-color: #eee;
+  border-radius: 5px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.progress {
+  height: 100%;
+  background-color: red;
+  transition: width 0.1s;
+}
+
+.cancel-link {
+  margin-top: 20px;
+  color: red;
+  cursor: pointer;
+}
+
+.start-over {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: red;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+audio {
+  margin-top: 20px;
+  width: 80%;
+}

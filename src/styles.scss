@@ -1,1 +1,114 @@
-/* You can add global styles to this file, and also import other style files */
+/* 4:33 Global Styles */
+
+:root {
+  --color-bg: #000000;
+  --color-surface: #0a0a0a;
+  --color-surface-elevated: #1a1a1a;
+  --color-border: #222222;
+  --color-border-light: #333333;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #888888;
+  --color-text-tertiary: #555555;
+  --color-text-disabled: #333333;
+  --color-accent: #ffffff;
+
+  --font-size-xs: 10px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-size-lg: 24px;
+  --font-size-xl: 28px;
+  --font-size-hero: 48px;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --easing-default: ease-out;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+ion-content {
+  --background: var(--color-bg);
+}
+
+ion-tab-bar {
+  --background: var(--color-bg);
+  --border: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border);
+}
+
+ion-tab-button {
+  --color: var(--color-text-tertiary);
+  --color-selected: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.5px;
+
+  ion-icon {
+    font-size: 22px;
+  }
+
+  ion-label {
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+}
+
+ion-toolbar {
+  --background: var(--color-bg);
+  --border-width: 0;
+}
+
+ion-back-button {
+  --color: var(--color-text-primary);
+}
+
+/* Animation keyframes */
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.4); }
+  50% { box-shadow: 0 0 0 20px rgba(255,255,255,0); }
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Utility classes */
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-tertiary {
+  color: var(--color-text-tertiary);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.uppercase {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}

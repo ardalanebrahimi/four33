@@ -1,59 +1,108 @@
-# Four33
+# 4'33" — Audio Social Platform
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.0.6.
+An audio-only social platform inspired by John Cage's 4'33". Users record ambient sound in specific durations (movements), tag their recordings with interpretations, and explore others' recordings.
 
-## Development server
+## Tech Stack
 
-To start a local development server, run:
+- **Frontend:** Angular 19 / Ionic 8 / Capacitor 6
+- **Audio:** RecordRTC (WebM recording)
+- **State:** Angular Signals
 
-```bash
-ng serve
-```
+## Features
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+- **Record:** Select movement duration (30", 2'23", 1'40", or full 4'33"), record ambient audio with live waveform visualization
+- **Interpret:** Add 3-5 tags describing what you heard
+- **Explore:** Browse recordings, filter by tags, like and follow
+- **Profile:** View your sounds, following, followers, and activity
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Development
 
 ```bash
-ng generate --help
+# Install dependencies
+npm install
+
+# Start development server
+npm start
+# Open http://localhost:4200
+
+# Start with network access (for phone testing)
+npm run start:external
+# Open http://<your-ip>:8100 on your phone
 ```
 
 ## Building
 
-To build the project run:
-
 ```bash
-ng build
+# Production build
+npm run build
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## Mobile Deployment
 
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+### Android
 
 ```bash
-ng test
+# Build and sync to Android
+npm run build
+npx cap sync android
+
+# Open in Android Studio
+npx cap open android
 ```
 
-## Running end-to-end tests
+Then in Android Studio:
+1. Connect your phone via USB
+2. Enable Developer Options → USB Debugging on your phone
+3. Click Run (or Shift+F10)
 
-For end-to-end (e2e) testing, run:
+### iOS (requires macOS)
 
 ```bash
-ng e2e
+# Add iOS platform (first time only)
+npx cap add ios
+
+# Build and sync
+npm run build
+npx cap sync ios
+
+# Open in Xcode
+npx cap open ios
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## Project Structure
 
-## Additional Resources
+```
+src/app/
+├── models/           # TypeScript interfaces & constants
+├── services/         # State management & audio recording
+├── components/       # Reusable UI components
+│   ├── waveform/
+│   ├── progress-ring/
+│   ├── movement-badge/
+│   ├── tag-chip/
+│   ├── recording-card/
+│   └── user-avatar/
+├── tabs/             # Tab navigation
+└── pages/
+    ├── record/       # Movement selection + recording
+    ├── playback/     # Preview recorded audio
+    ├── tags-input/   # Add interpretation tags
+    ├── explore/      # Browse recordings
+    ├── recording-detail/
+    ├── tag-detail/
+    ├── user-profile/
+    └── profile/      # Current user profile
+```
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+## Movement Durations
+
+| Movement | Duration | Based on original 4'33" |
+|----------|----------|------------------------|
+| I        | 30"      | Tacet                  |
+| II       | 2'23"    | Tacet                  |
+| III      | 1'40"    | Tacet                  |
+| FULL     | 4'33"    | Complete work          |
+
+## License
+
+MIT
