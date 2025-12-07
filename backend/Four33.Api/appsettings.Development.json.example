@@ -1,0 +1,22 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug",
+      "Microsoft.AspNetCore": "Information",
+      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    }
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=your-postgres-host;Database=four33;Username=your-username;Password=your-password;SSL Mode=Require;Trust Server Certificate=true"
+  },
+  "Jwt": {
+    "Secret": "your-development-secret-key-minimum-32-characters-long"
+  },
+  "Azure": {
+    "BlobStorage": {
+      "ConnectionString": "your-azure-storage-connection-string",
+      "ContainerName": "audio",
+      "CdnBaseUrl": ""
+    }
+  }
+}
