@@ -19,28 +19,45 @@ import { ProgressRingComponent } from '../../components/progress-ring/progress-r
         @if (state.phase() === 'selecting') {
           <div class="selection-view">
             <h1 class="title">4'33"</h1>
-            <p class="subtitle">Select a movement to record</p>
+            <p class="subtitle">Record the complete work</p>
 
-            <div class="movements">
-              @for (mov of movements; track mov.id) {
-                <button class="movement-item" (click)="selectMovement(mov.id)">
-                  <div class="movement-icon">
-                    <span class="numeral">{{ mov.id === 'FULL' ? '' : mov.id }}</span>
-                  </div>
-                  <div class="movement-info">
-                    <span class="movement-name">
-                      {{ mov.id === 'FULL' ? 'Complete Work' : 'Movement ' + mov.id }}
-                    </span>
-                    <span class="movement-desc">{{ mov.description }}</span>
-                  </div>
-                  <span class="movement-duration">{{ mov.label }}</span>
-                </button>
-              }
+            <div class="main-action">
+              <button class="record-main-button" (click)="selectMovement('FULL')">
+                <span class="mic-icon">🎙</span>
+                <span class="main-duration">4'33"</span>
+                <span class="main-label">TAP TO BEGIN</span>
+              </button>
             </div>
 
+            @if (!showAllMovements) {
+              <button class="show-more-btn" (click)="showAllMovements = true">
+                or choose a shorter movement ▾
+              </button>
+            } @else {
+              <div class="movements">
+                <p class="movements-label">SHORTER MOVEMENTS</p>
+                @for (mov of movements; track mov.id) {
+                  @if (mov.id !== 'FULL') {
+                    <button class="movement-item" (click)="selectMovement(mov.id)">
+                      <div class="movement-icon">
+                        <span class="numeral">{{ mov.id }}</span>
+                      </div>
+                      <div class="movement-info">
+                        <span class="movement-name">Movement {{ mov.id }}</span>
+                        <span class="movement-desc">{{ mov.description }}</span>
+                      </div>
+                      <span class="movement-duration">{{ mov.label }}</span>
+                    </button>
+                  }
+                }
+              </div>
+              <button class="show-more-btn" (click)="showAllMovements = false">
+                hide ▴
+              </button>
+            }
+
             <p class="footer-text">
-              Each movement is a window into silence.<br />
-              Choose your duration, then listen.
+              Each movement is a window into silence.
             </p>
           </div>
         }
@@ -85,8 +102,8 @@ import { ProgressRingComponent } from '../../components/progress-ring/progress-r
               <app-waveform
                 [data]="state.waveformData()"
                 [progress]="100"
-                [height]="50"
-                [barCount]="30"
+                [height]="80"
+                [barCount]="40"
                 [live]="true"
               ></app-waveform>
             </div>
@@ -111,7 +128,8 @@ import { ProgressRingComponent } from '../../components/progress-ring/progress-r
               <app-waveform
                 [data]="state.waveformData()"
                 [progress]="playbackProgress"
-                [height]="60"
+                [height]="100"
+                [barCount]="50"
               ></app-waveform>
               <div class="playback-line" [style.left.%]="playbackProgress"></div>
             </div>
@@ -140,6 +158,7 @@ export class RecordPage implements OnDestroy {
   private audioService = inject(AudioRecorderService);
 
   movements = Object.values(MOVEMENTS);
+  showAllMovements = false;
   private recordingInterval: any;
   private audioElement: HTMLAudioElement | null = null;
   isPlaying = false;

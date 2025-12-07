@@ -27,7 +27,8 @@ import { MovementBadgeComponent } from '../../components/movement-badge/movement
           <app-waveform
             [data]="state.waveformData()"
             [progress]="playbackProgress"
-            [height]="60"
+            [height]="100"
+            [barCount]="50"
           ></app-waveform>
         </div>
 

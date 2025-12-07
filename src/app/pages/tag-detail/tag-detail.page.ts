@@ -7,8 +7,10 @@ import {
   IonToolbar,
   IonButtons,
   IonBackButton,
+  IonSpinner,
 } from '@ionic/angular/standalone';
-import { MockDataService } from '../../services/mock-data.service';
+import { TagsApiService } from '../../services/tags-api.service';
+import { RecordingsApiService } from '../../services/recordings-api.service';
 import { Recording, Tag } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 
@@ -22,6 +24,7 @@ import { RecordingCardComponent } from '../../components/recording-card/recordin
     IonToolbar,
     IonButtons,
     IonBackButton,
+    IonSpinner,
     RecordingCardComponent,
   ],
   template: `
@@ -34,11 +37,15 @@ import { RecordingCardComponent } from '../../components/recording-card/recordin
     </ion-header>
 
     <ion-content [fullscreen]="true">
-      @if (tag()) {
+      @if (isLoading()) {
+        <div class="loading-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      } @else if (tag()) {
         <div class="container">
           <div class="header">
             <h1 class="tag-name">#{{ tag()!.name }}</h1>
-            <p class="recording-count">{{ recordings().length }} recordings</p>
+            <p class="recording-count">{{ tag()!.recordingCount || 0 }} recordings</p>
           </div>
 
           <button
@@ -55,8 +62,16 @@ import { RecordingCardComponent } from '../../components/recording-card/recordin
                 [recording]="recording"
                 (cardClick)="openRecording($event)"
                 (userClick)="openUser($event)"
+                (tagClick)="openTag($event)"
                 (onLike)="toggleLike($event)"
+                (onPlay)="openRecording($event)"
               ></app-recording-card>
+            }
+
+            @if (recordings().length === 0) {
+              <div class="empty-state">
+                <p>No recordings with this tag yet</p>
+              </div>
             }
           </div>
         </div>
@@ -113,35 +128,86 @@ import { RecordingCardComponent } from '../../components/recording-card/recordin
         flex-direction: column;
         gap: 16px;
       }
+
+      .loading-state {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 50vh;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--color-text-tertiary);
+      }
     `,
   ],
 })
 export class TagDetailPage implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private mockData = inject(MockDataService);
+  private tagsApi = inject(TagsApiService);
+  private recordingsApi = inject(RecordingsApiService);
 
   tag = signal<Tag | null>(null);
   recordings = signal<Recording[]>([]);
+  isLoading = signal(false);
 
   ngOnInit(): void {
     const name = this.route.snapshot.paramMap.get('name');
     if (name) {
-      const tags = this.mockData.getTags();
-      const foundTag = tags.find((t) => t.name === name);
-      if (foundTag) {
-        this.tag.set(foundTag);
-        this.recordings.set(this.mockData.getRecordings({ tag: name }));
-      }
+      this.loadTag(name);
     }
+  }
+
+  private loadTag(name: string): void {
+    this.isLoading.set(true);
+
+    this.tagsApi.getTag(name).subscribe({
+      next: (tag) => {
+        this.tag.set(tag);
+        this.loadRecordings(name);
+      },
+      error: () => {
+        // Tag might not exist yet, create a placeholder
+        this.tag.set({
+          id: '',
+          name: name,
+          recordingCount: 0,
+          isFollowing: false
+        });
+        this.loadRecordings(name);
+      }
+    });
+  }
+
+  private loadRecordings(tagName: string): void {
+    this.tagsApi.getTagRecordings(tagName).subscribe({
+      next: (result) => {
+        this.recordings.set(result.items);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.recordings.set([]);
+        this.isLoading.set(false);
+      }
+    });
   }
 
   toggleFollow(): void {
     const t = this.tag();
-    if (t) {
-      this.mockData.toggleFollowTag(t.name);
-      this.tag.set({ ...t, isFollowing: !t.isFollowing });
-    }
+    if (!t) return;
+
+    const action = t.isFollowing
+      ? this.tagsApi.unfollowTag(t.name)
+      : this.tagsApi.followTag(t.name);
+
+    action.subscribe({
+      next: (result) => {
+        this.tag.set({ ...t, isFollowing: result.following });
+      }
+    });
   }
 
   openRecording(recording: Recording): void {
@@ -152,11 +218,27 @@ export class TagDetailPage implements OnInit {
     this.router.navigate(['/user', user.id]);
   }
 
-  toggleLike(recording: Recording): void {
-    this.mockData.toggleLike(recording.id);
-    const tagName = this.tag()?.name;
-    if (tagName) {
-      this.recordings.set(this.mockData.getRecordings({ tag: tagName }));
+  openTag(event: { name: string }): void {
+    if (event.name !== this.tag()?.name) {
+      this.router.navigate(['/tag', event.name]);
     }
+  }
+
+  toggleLike(recording: Recording): void {
+    const action = recording.isLiked
+      ? this.recordingsApi.unlikeRecording(recording.id)
+      : this.recordingsApi.likeRecording(recording.id);
+
+    action.subscribe({
+      next: (result) => {
+        this.recordings.update(recordings =>
+          recordings.map(r =>
+            r.id === recording.id
+              ? { ...r, isLiked: result.liked, likesCount: r.likesCount + (result.liked ? 1 : -1) }
+              : r
+          )
+        );
+      }
+    });
   }
 }

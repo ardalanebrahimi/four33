@@ -14,7 +14,13 @@
       "Bash(az webapp deployment source config-zip:*)",
       "Bash(az webapp config set:*)",
       "Bash(az webapp cors:*)",
-      "Bash(az webapp restart:*)"
+      "Bash(az webapp restart:*)",
+      "Bash(dotnet publish:*)",
+      "Bash(az webapp log tail:*)",
+      "Bash(az webapp log download:*)",
+      "Bash(az webapp show:*)",
+      "Bash(az webapp config show:*)",
+      "WebFetch(domain:four33-api-dmgddtanecdzbnh8.westeurope-01.azurewebsites.net)"
     ],
     "deny": [],
     "ask": []

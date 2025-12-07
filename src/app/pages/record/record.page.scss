@@ -32,14 +32,86 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  align-items: center;
+}
+
+.main-action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.record-main-button {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: var(--color-surface-elevated);
+  border: 2px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 0 20px rgba(34, 34, 34, 0.3);
+
+  &:hover {
+    border-color: var(--color-text-secondary);
+    box-shadow: 0 0 0 25px rgba(34, 34, 34, 0.4);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  .mic-icon {
+    font-size: 32px;
+  }
+
+  .main-duration {
+    font-size: 24px;
+    font-weight: 300;
+    color: var(--color-text-primary);
+  }
+
+  .main-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--color-text-tertiary);
+  }
+}
+
+.show-more-btn {
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  margin-bottom: 16px;
+
+  &:hover {
+    color: var(--color-text-secondary);
+  }
+}
+
+.movements-label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--color-text-tertiary);
+  margin: 0 0 12px 0;
+  text-align: center;
 }
 
 .movements {
-  flex: 1;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 32px;
+  margin-bottom: 16px;
 }
 
 .movement-item {

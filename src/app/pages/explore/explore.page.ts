@@ -1,7 +1,7 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { IonContent, IonSpinner } from '@ionic/angular/standalone';
+import { IonContent, IonSpinner, IonRefresher, IonRefresherContent } from '@ionic/angular/standalone';
 import { RecordingsApiService } from '../../services/recordings-api.service';
 import { TagsApiService } from '../../services/tags-api.service';
 import { Recording, Tag } from '../../models';
@@ -11,9 +11,13 @@ import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
 @Component({
   selector: 'app-explore',
   standalone: true,
-  imports: [CommonModule, IonContent, IonSpinner, RecordingCardComponent, TagChipComponent],
+  imports: [CommonModule, IonContent, IonSpinner, IonRefresher, IonRefresherContent, RecordingCardComponent, TagChipComponent],
   template: `
     <ion-content [fullscreen]="true">
+      <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+        <ion-refresher-content pullingText="Pull to refresh" refreshingSpinner="crescent"></ion-refresher-content>
+      </ion-refresher>
+
       <div class="container">
         <h1 class="title">Explore</h1>
 
@@ -165,6 +169,22 @@ export class ExplorePage implements OnInit {
   clearFilter(): void {
     this.selectedTag.set(null);
     this.loadRecordings();
+  }
+
+  handleRefresh(event: any): void {
+    this.loadTags();
+    const tag = this.selectedTag();
+
+    this.recordingsApi.getRecordings({ tag: tag || undefined, limit: 50 }).subscribe({
+      next: (result) => {
+        this.recordings.set(result.items);
+        event.target.complete();
+      },
+      error: () => {
+        this.recordings.set([]);
+        event.target.complete();
+      }
+    });
   }
 
   openRecording(recording: Recording): void {

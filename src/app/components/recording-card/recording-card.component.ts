@@ -23,6 +23,9 @@ import { play, heart, heartOutline } from 'ionicons/icons';
           <ion-icon name="play"></ion-icon>
         </button>
         <div class="user-info" (click)="onUserClick($event)">
+          @if (recording.title) {
+            <span class="title">{{ recording.title }}</span>
+          }
           <span class="username">{{ recording.user.username }}</span>
           <span class="time">{{ recording.timeAgo }}</span>
         </div>
@@ -93,9 +96,21 @@ import { play, heart, heartOutline } from 'ionicons/icons';
         cursor: pointer;
       }
 
+      .title {
+        font-weight: 600;
+        font-size: 15px;
+        color: var(--color-text-primary, #fff);
+      }
+
       .username {
         font-weight: 500;
         color: var(--color-text-primary, #fff);
+        font-size: 13px;
+      }
+
+      .title + .username {
+        font-weight: 400;
+        color: var(--color-text-secondary, #888);
       }
 
       .time {
