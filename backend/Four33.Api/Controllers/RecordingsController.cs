@@ -281,7 +281,7 @@ public class RecordingsController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var recording = await _db.Recordings
-            .Include(r => r.Tags)
+            .Include(r => r.Tags).ThenInclude(rt => rt.Tag)
             .FirstOrDefaultAsync(r => r.Id == id);
 
         if (recording == null) return NotFound();
