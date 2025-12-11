@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -12,9 +12,10 @@ import {
   IonSpinner,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { play, pause, heart, heartOutline } from 'ionicons/icons';
+import { play, pause, heart, heartOutline, playSkipBack, playSkipForward } from 'ionicons/icons';
 import { RecordingsApiService } from '../../services/recordings-api.service';
 import { UsersApiService } from '../../services/users-api.service';
+import { PlayerService } from '../../services/player.service';
 import { Recording } from '../../models';
 import { WaveformComponent } from '../../components/waveform/waveform.component';
 import { MovementBadgeComponent } from '../../components/movement-badge/movement-badge.component';
@@ -79,7 +80,7 @@ import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.co
             <app-movement-badge [movement]="recording()!.movement"></app-movement-badge>
           </div>
 
-          <div class="waveform-section">
+          <div class="waveform-section" (click)="onWaveformClick($event)">
             <app-waveform
               [data]="recording()!.waveformData"
               [progress]="playbackProgress()"
@@ -87,9 +88,37 @@ import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.co
             ></app-waveform>
           </div>
 
+          <div class="time-display">
+            <span>{{ player.formatTime(player.currentTime()) }}</span>
+            <div class="seek-bar">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                [value]="playbackProgress()"
+                (input)="onSeek($event)"
+              />
+            </div>
+            <span>{{ player.formatTime(player.duration()) }}</span>
+          </div>
+
           <div class="controls">
+            <button
+              class="skip-btn"
+              [class.disabled]="!player.hasPrevious()"
+              (click)="onPrevious()"
+            >
+              <ion-icon name="play-skip-back"></ion-icon>
+            </button>
             <button class="play-btn" (click)="togglePlayback()">
               <ion-icon [name]="isPlaying() ? 'pause' : 'play'"></ion-icon>
+            </button>
+            <button
+              class="skip-btn"
+              [class.disabled]="!player.hasNext()"
+              (click)="onNext()"
+            >
+              <ion-icon name="play-skip-forward"></ion-icon>
             </button>
             <button
               class="like-btn"
@@ -189,17 +218,84 @@ import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.co
       }
 
       .waveform-section {
-        margin-bottom: 24px;
+        margin-bottom: 16px;
         padding-bottom: 16px;
         border-bottom: 1px solid var(--color-border);
+        cursor: pointer;
+      }
+
+      .time-display {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+        font-size: 12px;
+        color: var(--color-text-secondary);
+      }
+
+      .seek-bar {
+        flex: 1;
+        position: relative;
+        height: 4px;
+        background: var(--color-border);
+        border-radius: 2px;
+
+        input[type="range"] {
+          position: absolute;
+          width: 100%;
+          height: 20px;
+          top: -8px;
+          left: 0;
+          opacity: 0;
+          cursor: pointer;
+          margin: 0;
+        }
+
+        &::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          height: 100%;
+          background: var(--color-text-primary);
+          border-radius: 2px;
+          width: var(--progress, 0%);
+          pointer-events: none;
+        }
       }
 
       .controls {
         display: flex;
         justify-content: center;
         align-items: center;
-        gap: 24px;
+        gap: 16px;
         margin-bottom: 32px;
+      }
+
+      .skip-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: transparent;
+        border: none;
+        color: var(--color-text-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+
+        ion-icon {
+          font-size: 22px;
+        }
+
+        &:hover:not(.disabled) {
+          color: var(--color-text-primary);
+        }
+
+        &.disabled {
+          opacity: 0.3;
+          cursor: default;
+        }
       }
 
       .play-btn {
@@ -314,18 +410,30 @@ export class RecordingDetailPage implements OnInit, OnDestroy {
   private router = inject(Router);
   private recordingsApi = inject(RecordingsApiService);
   private usersApi = inject(UsersApiService);
+  player = inject(PlayerService);
 
   recording = signal<Recording | null>(null);
   isLoading = signal(false);
-  isPlaying = signal(false);
-  playbackProgress = signal(0);
   newTag = '';
 
-  private audioElement: HTMLAudioElement | null = null;
-  private playbackInterval: any;
+  // Computed values from player service
+  isPlaying = () => {
+    const currentRec = this.player.currentRecording();
+    const rec = this.recording();
+    return currentRec?.id === rec?.id && this.player.isPlaying();
+  };
+
+  playbackProgress = () => {
+    const currentRec = this.player.currentRecording();
+    const rec = this.recording();
+    if (currentRec?.id === rec?.id) {
+      return this.player.progress();
+    }
+    return 0;
+  };
 
   constructor() {
-    addIcons({ play, pause, heart, heartOutline });
+    addIcons({ play, pause, heart, heartOutline, playSkipBack, playSkipForward });
   }
 
   ngOnInit(): void {
@@ -352,46 +460,52 @@ export class RecordingDetailPage implements OnInit, OnDestroy {
     const rec = this.recording();
     if (!rec) return;
 
-    if (this.isPlaying()) {
-      // Pause
-      if (this.audioElement) {
-        this.audioElement.pause();
-      }
-      clearInterval(this.playbackInterval);
-      this.isPlaying.set(false);
+    const currentRec = this.player.currentRecording();
+    if (currentRec?.id === rec.id) {
+      // Toggle current recording
+      this.player.togglePlayPause();
     } else {
-      // Play
-      if (rec.audioUrl) {
-        if (!this.audioElement) {
-          this.audioElement = new Audio(rec.audioUrl);
-          this.audioElement.addEventListener('ended', () => {
-            this.isPlaying.set(false);
-            this.playbackProgress.set(0);
-            clearInterval(this.playbackInterval);
-          });
-          this.audioElement.addEventListener('timeupdate', () => {
-            if (this.audioElement) {
-              const progress = (this.audioElement.currentTime / this.audioElement.duration) * 100;
-              this.playbackProgress.set(progress);
-            }
-          });
-        }
-        this.audioElement.play();
-        this.isPlaying.set(true);
-      } else {
-        // Simulate playback if no audio URL
-        this.isPlaying.set(true);
-        this.playbackInterval = setInterval(() => {
-          this.playbackProgress.update((p) => {
-            if (p >= 100) {
-              clearInterval(this.playbackInterval);
-              this.isPlaying.set(false);
-              return 0;
-            }
-            return p + 2;
-          });
-        }, 100);
+      // Play this recording
+      this.player.play(rec);
+    }
+  }
+
+  onSeek(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const percent = parseFloat(input.value);
+    this.player.seekToPercent(percent);
+  }
+
+  onWaveformClick(event: MouseEvent): void {
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const percent = ((event.clientX - rect.left) / rect.width) * 100;
+
+    const rec = this.recording();
+    if (rec) {
+      // If this recording isn't playing, start it first
+      if (this.player.currentRecording()?.id !== rec.id) {
+        this.player.play(rec);
       }
+      this.player.seekToPercent(percent);
+    }
+  }
+
+  onPrevious(): void {
+    this.player.previous();
+    // Navigate to the new recording if it changed
+    const currentRec = this.player.currentRecording();
+    if (currentRec && currentRec.id !== this.recording()?.id) {
+      this.router.navigate(['/recording', currentRec.id]);
+    }
+  }
+
+  onNext(): void {
+    this.player.next();
+    // Navigate to the new recording if it changed
+    const currentRec = this.player.currentRecording();
+    if (currentRec && currentRec.id !== this.recording()?.id) {
+      this.router.navigate(['/recording', currentRec.id]);
     }
   }
 
@@ -462,10 +576,6 @@ export class RecordingDetailPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.audioElement) {
-      this.audioElement.pause();
-      this.audioElement = null;
-    }
-    clearInterval(this.playbackInterval);
+    // Player service handles cleanup - playback continues when navigating away
   }
 }

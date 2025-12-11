@@ -8,6 +8,7 @@ import { AuthService } from '../../services/auth.service';
 import { UsersApiService } from '../../services/users-api.service';
 import { RecordingsApiService } from '../../services/recordings-api.service';
 import { TagsApiService } from '../../services/tags-api.service';
+import { PlayerService } from '../../services/player.service';
 import { Recording, User, Tag, Activity } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.component';
@@ -99,7 +100,7 @@ type ProfileTab = 'sounds' | 'following' | 'followers' | 'activity';
                       <app-recording-card
                         [recording]="recording"
                         (cardClick)="openRecording($event)"
-                        (onPlay)="openRecording($event)"
+                        (onPlay)="playRecording($event)"
                       ></app-recording-card>
                     }
                   </div>
@@ -460,6 +461,7 @@ export class ProfilePage implements OnInit {
   private usersApi = inject(UsersApiService);
   private recordingsApi = inject(RecordingsApiService);
   private tagsApi = inject(TagsApiService);
+  private player = inject(PlayerService);
 
   activeTab = signal<ProfileTab>('sounds');
   isLoading = signal(false);
@@ -533,6 +535,10 @@ export class ProfilePage implements OnInit {
 
   openRecording(recording: Recording): void {
     this.router.navigate(['/recording', recording.id]);
+  }
+
+  playRecording(recording: Recording): void {
+    this.player.play(recording, this.userRecordings());
   }
 
   openUser(user: User): void {

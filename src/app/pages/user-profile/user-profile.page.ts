@@ -11,6 +11,7 @@ import {
 } from '@ionic/angular/standalone';
 import { UsersApiService } from '../../services/users-api.service';
 import { RecordingsApiService } from '../../services/recordings-api.service';
+import { PlayerService } from '../../services/player.service';
 import { Recording, User } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.component';
@@ -81,6 +82,7 @@ import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.co
                     [recording]="recording"
                     (cardClick)="openRecording($event)"
                     (onLike)="toggleLike($event)"
+                    (onPlay)="playRecording($event)"
                   ></app-recording-card>
                 }
               </div>
@@ -190,6 +192,7 @@ export class UserProfilePage implements OnInit {
   private router = inject(Router);
   private usersApi = inject(UsersApiService);
   private recordingsApi = inject(RecordingsApiService);
+  private player = inject(PlayerService);
 
   user = signal<User | null>(null);
   recordings = signal<Recording[]>([]);
@@ -248,6 +251,10 @@ export class UserProfilePage implements OnInit {
 
   openRecording(recording: Recording): void {
     this.router.navigate(['/recording', recording.id]);
+  }
+
+  playRecording(recording: Recording): void {
+    this.player.play(recording, this.recordings());
   }
 
   toggleLike(recording: Recording): void {

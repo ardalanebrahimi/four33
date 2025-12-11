@@ -1,11 +1,12 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Recording } from '../../models';
 import { MovementBadgeComponent } from '../movement-badge/movement-badge.component';
 import { TagChipComponent } from '../tag-chip/tag-chip.component';
 import { IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { play, heart, heartOutline } from 'ionicons/icons';
+import { play, pause, heart, heartOutline } from 'ionicons/icons';
+import { PlayerService } from '../../services/player.service';
 
 @Component({
   selector: 'app-recording-card',
@@ -19,8 +20,8 @@ import { play, heart, heartOutline } from 'ionicons/icons';
   template: `
     <div class="card" (click)="onCardClick($event)">
       <div class="header">
-        <button class="play-btn" (click)="playClick($event)">
-          <ion-icon name="play"></ion-icon>
+        <button class="play-btn" [class.playing]="isCurrentlyPlaying()" (click)="playClick($event)">
+          <ion-icon [name]="isCurrentlyPlaying() ? 'pause' : 'play'"></ion-icon>
         </button>
         <div class="user-info" (click)="onUserClick($event)">
           @if (recording.title) {
@@ -81,11 +82,21 @@ import { play, heart, heartOutline } from 'ionicons/icons';
         justify-content: center;
         cursor: pointer;
         flex-shrink: 0;
+        transition: all 150ms ease;
+      }
+
+      .play-btn.playing {
+        background: var(--color-text-primary, #fff);
+        color: var(--color-bg, #000);
       }
 
       .play-btn ion-icon {
         font-size: 18px;
         margin-left: 2px;
+      }
+
+      .play-btn.playing ion-icon {
+        margin-left: 0;
       }
 
       .user-info {
@@ -153,6 +164,8 @@ import { play, heart, heartOutline } from 'ionicons/icons';
   ],
 })
 export class RecordingCardComponent {
+  private player = inject(PlayerService);
+
   @Input() recording!: Recording;
   @Output() cardClick = new EventEmitter<Recording>();
   @Output() userClick = new EventEmitter<any>();
@@ -161,7 +174,12 @@ export class RecordingCardComponent {
   @Output() onPlay = new EventEmitter<Recording>();
 
   constructor() {
-    addIcons({ play, heart, heartOutline });
+    addIcons({ play, pause, heart, heartOutline });
+  }
+
+  isCurrentlyPlaying(): boolean {
+    const currentRec = this.player.currentRecording();
+    return currentRec?.id === this.recording?.id && this.player.isPlaying();
   }
 
   onCardClick(event: Event): void {

@@ -20,7 +20,8 @@
       "Bash(az webapp log download:*)",
       "Bash(az webapp show:*)",
       "Bash(az webapp config show:*)",
-      "WebFetch(domain:four33-api-dmgddtanecdzbnh8.westeurope-01.azurewebsites.net)"
+      "WebFetch(domain:four33-api-dmgddtanecdzbnh8.westeurope-01.azurewebsites.net)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

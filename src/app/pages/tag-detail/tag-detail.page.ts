@@ -11,6 +11,7 @@ import {
 } from '@ionic/angular/standalone';
 import { TagsApiService } from '../../services/tags-api.service';
 import { RecordingsApiService } from '../../services/recordings-api.service';
+import { PlayerService } from '../../services/player.service';
 import { Recording, Tag } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 
@@ -64,7 +65,7 @@ import { RecordingCardComponent } from '../../components/recording-card/recordin
                 (userClick)="openUser($event)"
                 (tagClick)="openTag($event)"
                 (onLike)="toggleLike($event)"
-                (onPlay)="openRecording($event)"
+                (onPlay)="playRecording($event)"
               ></app-recording-card>
             }
 
@@ -149,6 +150,7 @@ export class TagDetailPage implements OnInit {
   private router = inject(Router);
   private tagsApi = inject(TagsApiService);
   private recordingsApi = inject(RecordingsApiService);
+  private player = inject(PlayerService);
 
   tag = signal<Tag | null>(null);
   recordings = signal<Recording[]>([]);
@@ -222,6 +224,10 @@ export class TagDetailPage implements OnInit {
     if (event.name !== this.tag()?.name) {
       this.router.navigate(['/tag', event.name]);
     }
+  }
+
+  playRecording(recording: Recording): void {
+    this.player.play(recording, this.recordings());
   }
 
   toggleLike(recording: Recording): void {

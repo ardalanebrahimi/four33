@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import {
   IonTabs,
   IonTabBar,
@@ -8,13 +8,16 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { mic, statsChart, person } from 'ionicons/icons';
+import { MiniPlayerComponent } from '../components/mini-player/mini-player.component';
+import { PlayerService } from '../services/player.service';
 
 @Component({
   selector: 'app-tabs',
   standalone: true,
-  imports: [IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel],
+  imports: [IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel, MiniPlayerComponent],
   template: `
     <ion-tabs>
+      <app-mini-player></app-mini-player>
       <ion-tab-bar slot="bottom">
         <ion-tab-button tab="record">
           <ion-icon name="mic"></ion-icon>
@@ -43,6 +46,8 @@ import { mic, statsChart, person } from 'ionicons/icons';
   ],
 })
 export class TabsComponent {
+  player = inject(PlayerService);
+
   constructor() {
     addIcons({ mic, statsChart, person });
   }

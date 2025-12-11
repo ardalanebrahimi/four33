@@ -1,9 +1,10 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { IonContent, IonSpinner, IonRefresher, IonRefresherContent } from '@ionic/angular/standalone';
 import { RecordingsApiService } from '../../services/recordings-api.service';
 import { TagsApiService } from '../../services/tags-api.service';
+import { PlayerService } from '../../services/player.service';
 import { Recording, Tag } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
@@ -27,13 +28,18 @@ import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
             [selected]="!selectedTag()"
             (chipClick)="clearFilter()"
           ></app-tag-chip>
-          @for (tag of tags(); track tag.id) {
+          @for (tag of displayedTags(); track tag.id) {
             <app-tag-chip
               [name]="tag.name"
               [selected]="selectedTag() === tag.name"
               [addable]="true"
               (chipClick)="selectTag($event)"
             ></app-tag-chip>
+          }
+          @if (hasMoreTags()) {
+            <button class="more-tags-btn" (click)="toggleTagsExpanded()">
+              {{ tagsExpanded() ? 'Show less' : '+' + hiddenTagsCount() + ' more' }}
+            </button>
           }
         </div>
 
@@ -51,7 +57,7 @@ import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
                 (userClick)="openUser($event)"
                 (tagClick)="selectTag($event.name)"
                 (onLike)="toggleLike($event)"
-                (onPlay)="openRecording($event)"
+                (onPlay)="playRecording($event)"
               ></app-recording-card>
             }
 
@@ -82,6 +88,22 @@ import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
         flex-wrap: wrap;
         gap: 8px;
         margin-bottom: 24px;
+      }
+
+      .more-tags-btn {
+        padding: 6px 12px;
+        background: var(--color-surface-elevated, #1a1a1a);
+        border: 1px solid var(--color-border, #222);
+        border-radius: 16px;
+        color: var(--color-text-secondary, #888);
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 150ms ease;
+
+        &:hover {
+          border-color: var(--color-border-light, #333);
+          color: var(--color-text-primary, #fff);
+        }
       }
 
       .recordings-list {
@@ -123,11 +145,28 @@ export class ExplorePage implements OnInit {
   private router = inject(Router);
   private recordingsApi = inject(RecordingsApiService);
   private tagsApi = inject(TagsApiService);
+  private player = inject(PlayerService);
+
+  private readonly MAX_VISIBLE_TAGS = 5;
 
   tags = signal<Tag[]>([]);
   selectedTag = signal<string | null>(null);
   recordings = signal<Recording[]>([]);
   isLoading = signal(false);
+  tagsExpanded = signal(false);
+
+  // Computed signals for tags display
+  displayedTags = computed(() => {
+    const allTags = this.tags();
+    if (this.tagsExpanded()) {
+      return allTags;
+    }
+    return allTags.slice(0, this.MAX_VISIBLE_TAGS);
+  });
+
+  hasMoreTags = computed(() => this.tags().length > this.MAX_VISIBLE_TAGS);
+
+  hiddenTagsCount = computed(() => Math.max(0, this.tags().length - this.MAX_VISIBLE_TAGS));
 
   ngOnInit(): void {
     this.loadTags();
@@ -187,12 +226,21 @@ export class ExplorePage implements OnInit {
     });
   }
 
+  toggleTagsExpanded(): void {
+    this.tagsExpanded.update(v => !v);
+  }
+
   openRecording(recording: Recording): void {
     this.router.navigate(['/recording', recording.id]);
   }
 
   openUser(user: any): void {
     this.router.navigate(['/user', user.id]);
+  }
+
+  playRecording(recording: Recording): void {
+    // Play the recording and set the current playlist
+    this.player.play(recording, this.recordings());
   }
 
   toggleLike(recording: Recording): void {
