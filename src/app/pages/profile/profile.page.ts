@@ -1,7 +1,7 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { IonContent, IonIcon, IonSpinner } from '@ionic/angular/standalone';
+import { IonContent, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { heart, personAdd } from 'ionicons/icons';
 import { AuthService } from '../../services/auth.service';
@@ -13,6 +13,7 @@ import { Recording, User, Tag, Activity } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.component';
 import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
+import { LoadingComponent } from '../../components/loading/loading.component';
 
 type ProfileTab = 'sounds' | 'following' | 'followers' | 'activity';
 
@@ -23,10 +24,10 @@ type ProfileTab = 'sounds' | 'following' | 'followers' | 'activity';
     CommonModule,
     IonContent,
     IonIcon,
-    IonSpinner,
     RecordingCardComponent,
     UserAvatarComponent,
     TagChipComponent,
+    LoadingComponent,
   ],
   template: `
     <ion-content [fullscreen]="true">
@@ -36,9 +37,7 @@ type ProfileTab = 'sounds' | 'following' | 'followers' | 'activity';
           <button class="login-btn" (click)="goToLogin()">SIGN IN</button>
         </div>
       } @else if (isLoading()) {
-        <div class="loading-state">
-          <ion-spinner name="crescent"></ion-spinner>
-        </div>
+        <app-loading text="loading"></app-loading>
       } @else {
         <div class="container">
           <div class="profile-header">

@@ -1,18 +1,19 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { IonContent, IonSpinner, IonRefresher, IonRefresherContent } from '@ionic/angular/standalone';
+import { IonContent, IonRefresher, IonRefresherContent } from '@ionic/angular/standalone';
 import { RecordingsApiService } from '../../services/recordings-api.service';
 import { TagsApiService } from '../../services/tags-api.service';
 import { PlayerService } from '../../services/player.service';
 import { Recording, Tag } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
+import { LoadingComponent } from '../../components/loading/loading.component';
 
 @Component({
   selector: 'app-explore',
   standalone: true,
-  imports: [CommonModule, IonContent, IonSpinner, IonRefresher, IonRefresherContent, RecordingCardComponent, TagChipComponent],
+  imports: [CommonModule, IonContent, IonRefresher, IonRefresherContent, RecordingCardComponent, TagChipComponent, LoadingComponent],
   template: `
     <ion-content [fullscreen]="true">
       <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
@@ -45,9 +46,7 @@ import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
 
         <div class="recordings-list">
           @if (isLoading()) {
-            <div class="loading-state">
-              <ion-spinner name="crescent"></ion-spinner>
-            </div>
+            <app-loading text="listening"></app-loading>
           } @else {
             @for (recording of recordings(); track recording.id; let i = $index) {
               <app-recording-card

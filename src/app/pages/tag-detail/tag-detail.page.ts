@@ -7,13 +7,13 @@ import {
   IonToolbar,
   IonButtons,
   IonBackButton,
-  IonSpinner,
 } from '@ionic/angular/standalone';
 import { TagsApiService } from '../../services/tags-api.service';
 import { RecordingsApiService } from '../../services/recordings-api.service';
 import { PlayerService } from '../../services/player.service';
 import { Recording, Tag } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
+import { LoadingComponent } from '../../components/loading/loading.component';
 
 @Component({
   selector: 'app-tag-detail',
@@ -25,8 +25,8 @@ import { RecordingCardComponent } from '../../components/recording-card/recordin
     IonToolbar,
     IonButtons,
     IonBackButton,
-    IonSpinner,
     RecordingCardComponent,
+    LoadingComponent,
   ],
   template: `
     <ion-header>
@@ -39,9 +39,7 @@ import { RecordingCardComponent } from '../../components/recording-card/recordin
 
     <ion-content [fullscreen]="true">
       @if (isLoading()) {
-        <div class="loading-state">
-          <ion-spinner name="crescent"></ion-spinner>
-        </div>
+        <app-loading text="loading"></app-loading>
       } @else if (tag()) {
         <div class="container">
           <div class="header">

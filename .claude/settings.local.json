@@ -21,7 +21,11 @@
       "Bash(az webapp show:*)",
       "Bash(az webapp config show:*)",
       "WebFetch(domain:four33-api-dmgddtanecdzbnh8.westeurope-01.azurewebsites.net)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(az staticwebapp list:*)",
+      "Bash(powershell Compress-Archive -Path * -DestinationPath ../deploy.zip -Force)",
+      "Bash(powershell \"Compress-Archive -Path ''./*'' -DestinationPath ''../deploy.zip'' -Force\")",
+      "Bash(az webapp deploy:*)"
     ],
     "deny": [],
     "ask": []

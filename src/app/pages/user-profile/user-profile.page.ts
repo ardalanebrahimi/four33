@@ -7,7 +7,6 @@ import {
   IonToolbar,
   IonButtons,
   IonBackButton,
-  IonSpinner,
 } from '@ionic/angular/standalone';
 import { UsersApiService } from '../../services/users-api.service';
 import { RecordingsApiService } from '../../services/recordings-api.service';
@@ -15,6 +14,7 @@ import { PlayerService } from '../../services/player.service';
 import { Recording, User } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.component';
+import { LoadingComponent } from '../../components/loading/loading.component';
 
 @Component({
   selector: 'app-user-profile',
@@ -26,9 +26,9 @@ import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.co
     IonToolbar,
     IonButtons,
     IonBackButton,
-    IonSpinner,
     RecordingCardComponent,
     UserAvatarComponent,
+    LoadingComponent,
   ],
   template: `
     <ion-header>
@@ -41,9 +41,7 @@ import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.co
 
     <ion-content [fullscreen]="true">
       @if (isLoading()) {
-        <div class="loading-state">
-          <ion-spinner name="crescent"></ion-spinner>
-        </div>
+        <app-loading text="loading"></app-loading>
       } @else if (user()) {
         <div class="container">
           <div class="profile-header">
