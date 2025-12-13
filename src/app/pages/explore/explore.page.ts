@@ -1,7 +1,13 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { IonContent, IonRefresher, IonRefresherContent } from '@ionic/angular/standalone';
+import {
+  IonContent,
+  IonRefresher,
+  IonRefresherContent,
+  IonInfiniteScroll,
+  IonInfiniteScrollContent,
+} from '@ionic/angular/standalone';
 import { RecordingsApiService } from '../../services/recordings-api.service';
 import { TagsApiService } from '../../services/tags-api.service';
 import { PlayerService } from '../../services/player.service';
@@ -13,7 +19,17 @@ import { LoadingComponent } from '../../components/loading/loading.component';
 @Component({
   selector: 'app-explore',
   standalone: true,
-  imports: [CommonModule, IonContent, IonRefresher, IonRefresherContent, RecordingCardComponent, TagChipComponent, LoadingComponent],
+  imports: [
+    CommonModule,
+    IonContent,
+    IonRefresher,
+    IonRefresherContent,
+    IonInfiniteScroll,
+    IonInfiniteScrollContent,
+    RecordingCardComponent,
+    TagChipComponent,
+    LoadingComponent,
+  ],
   template: `
     <ion-content [fullscreen]="true">
       <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
@@ -45,13 +61,13 @@ import { LoadingComponent } from '../../components/loading/loading.component';
         </div>
 
         <div class="recordings-list">
-          @if (isLoading()) {
+          @if (isLoading() && recordings().length === 0) {
             <app-loading text="listening"></app-loading>
           } @else {
             @for (recording of recordings(); track recording.id; let i = $index) {
               <app-recording-card
                 [recording]="recording"
-                [style.animation-delay.ms]="i * 50"
+                [style.animation-delay.ms]="i < pageSize ? i * 50 : 0"
                 (cardClick)="openRecording($event)"
                 (userClick)="openUser($event)"
                 (tagClick)="selectTag($event.name)"
@@ -60,13 +76,23 @@ import { LoadingComponent } from '../../components/loading/loading.component';
               ></app-recording-card>
             }
 
-            @if (recordings().length === 0) {
+            @if (recordings().length === 0 && !isLoading()) {
               <div class="empty-state">
                 <p>No recordings found</p>
               </div>
             }
           }
         </div>
+
+        <ion-infinite-scroll
+          [disabled]="!hasMore()"
+          (ionInfinite)="loadMore($event)"
+        >
+          <ion-infinite-scroll-content
+            loadingSpinner="crescent"
+            loadingText="Loading more..."
+          ></ion-infinite-scroll-content>
+        </ion-infinite-scroll>
       </div>
     </ion-content>
   `,
@@ -147,12 +173,15 @@ export class ExplorePage implements OnInit {
   private player = inject(PlayerService);
 
   private readonly MAX_VISIBLE_TAGS = 5;
+  readonly pageSize = 15;
 
   tags = signal<Tag[]>([]);
   selectedTag = signal<string | null>(null);
   recordings = signal<Recording[]>([]);
   isLoading = signal(false);
   tagsExpanded = signal(false);
+  hasMore = signal(true);
+  private currentOffset = 0;
 
   // Computed signals for tags display
   displayedTags = computed(() => {
@@ -179,18 +208,63 @@ export class ExplorePage implements OnInit {
     });
   }
 
-  loadRecordings(): void {
+  loadRecordings(reset = true): void {
+    if (reset) {
+      this.currentOffset = 0;
+      this.recordings.set([]);
+      this.hasMore.set(true);
+    }
+
     this.isLoading.set(true);
     const tag = this.selectedTag();
 
-    this.recordingsApi.getRecordings({ tag: tag || undefined, limit: 50 }).subscribe({
+    this.recordingsApi.getRecordings({
+      tag: tag || undefined,
+      limit: this.pageSize,
+      offset: this.currentOffset
+    }).subscribe({
       next: (result) => {
-        this.recordings.set(result.items);
+        if (reset) {
+          this.recordings.set(result.items);
+        } else {
+          this.recordings.update(current => [...current, ...result.items]);
+        }
+        this.hasMore.set(result.hasMore);
+        this.currentOffset += result.items.length;
         this.isLoading.set(false);
       },
       error: () => {
-        this.recordings.set([]);
+        if (reset) {
+          this.recordings.set([]);
+        }
+        this.hasMore.set(false);
         this.isLoading.set(false);
+      }
+    });
+  }
+
+  loadMore(event: any): void {
+    if (!this.hasMore() || this.isLoading()) {
+      event.target.complete();
+      return;
+    }
+
+    const tag = this.selectedTag();
+
+    this.recordingsApi.getRecordings({
+      tag: tag || undefined,
+      limit: this.pageSize,
+      offset: this.currentOffset
+    }).subscribe({
+      next: (result) => {
+        this.recordings.update(current => [...current, ...result.items]);
+        this.hasMore.set(result.hasMore);
+        this.currentOffset += result.items.length;
+        event.target.complete();
+      },
+      error: () => {
+        this.hasMore.set(false);
+        event.target.complete();
       }
     });
   }
@@ -211,15 +285,24 @@ export class ExplorePage implements OnInit {
 
   handleRefresh(event: any): void {
     this.loadTags();
+    this.currentOffset = 0;
+    this.hasMore.set(true);
     const tag = this.selectedTag();
 
-    this.recordingsApi.getRecordings({ tag: tag || undefined, limit: 50 }).subscribe({
+    this.recordingsApi.getRecordings({
+      tag: tag || undefined,
+      limit: this.pageSize,
+      offset: 0
+    }).subscribe({
       next: (result) => {
         this.recordings.set(result.items);
+        this.hasMore.set(result.hasMore);
+        this.currentOffset = result.items.length;
         event.target.complete();
       },
       error: () => {
         this.recordings.set([]);
+        this.hasMore.set(false);
         event.target.complete();
       }
     });
