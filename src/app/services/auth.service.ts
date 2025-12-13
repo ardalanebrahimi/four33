@@ -118,6 +118,18 @@ export class AuthService {
     }
   }
 
+  async loginWithGoogle(idToken: string): Promise<void> {
+    this._isLoading.set(true);
+    try {
+      const response = await firstValueFrom(
+        this.api.post<AuthResponse>('auth/google', { idToken })
+      );
+      this.saveAuthData(response);
+    } finally {
+      this._isLoading.set(false);
+    }
+  }
+
   async refreshToken(): Promise<boolean> {
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) {

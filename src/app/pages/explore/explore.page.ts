@@ -1,12 +1,14 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import {
   IonContent,
   IonRefresher,
   IonRefresherContent,
   IonInfiniteScroll,
   IonInfiniteScrollContent,
+  IonSearchbar,
 } from '@ionic/angular/standalone';
 import { RecordingsApiService } from '../../services/recordings-api.service';
 import { TagsApiService } from '../../services/tags-api.service';
@@ -21,11 +23,13 @@ import { LoadingComponent } from '../../components/loading/loading.component';
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     IonContent,
     IonRefresher,
     IonRefresherContent,
     IonInfiniteScroll,
     IonInfiniteScrollContent,
+    IonSearchbar,
     RecordingCardComponent,
     TagChipComponent,
     LoadingComponent,
@@ -38,6 +42,15 @@ import { LoadingComponent } from '../../components/loading/loading.component';
 
       <div class="container">
         <h1 class="title">Explore</h1>
+
+        <ion-searchbar
+          class="tag-search"
+          placeholder="Search tags..."
+          [debounce]="300"
+          [(ngModel)]="searchQuery"
+          (ionInput)="onSearchInput($event)"
+          (keyup.enter)="onSearchEnter()"
+        ></ion-searchbar>
 
         <div class="tags-filter">
           <app-tag-chip
@@ -106,6 +119,17 @@ import { LoadingComponent } from '../../components/loading/loading.component';
         font-size: 28px;
         font-weight: 600;
         margin: 0 0 24px 0;
+      }
+
+      .tag-search {
+        --background: var(--color-surface-elevated, #1a1a1a);
+        --border-radius: 12px;
+        --box-shadow: none;
+        --placeholder-color: var(--color-text-secondary, #888);
+        --color: var(--color-text-primary, #fff);
+        --icon-color: var(--color-text-secondary, #888);
+        padding: 0;
+        margin-bottom: 16px;
       }
 
       .tags-filter {
@@ -181,20 +205,30 @@ export class ExplorePage implements OnInit {
   isLoading = signal(false);
   tagsExpanded = signal(false);
   hasMore = signal(true);
+  searchQuery = signal('');
   private currentOffset = 0;
 
   // Computed signals for tags display
-  displayedTags = computed(() => {
+  filteredTags = computed(() => {
     const allTags = this.tags();
-    if (this.tagsExpanded()) {
+    const query = this.searchQuery().toLowerCase().trim();
+    if (!query) {
       return allTags;
     }
-    return allTags.slice(0, this.MAX_VISIBLE_TAGS);
+    return allTags.filter(tag => tag.name.toLowerCase().includes(query));
   });
 
-  hasMoreTags = computed(() => this.tags().length > this.MAX_VISIBLE_TAGS);
+  displayedTags = computed(() => {
+    const tags = this.filteredTags();
+    if (this.tagsExpanded() || this.searchQuery()) {
+      return tags;
+    }
+    return tags.slice(0, this.MAX_VISIBLE_TAGS);
+  });
 
-  hiddenTagsCount = computed(() => Math.max(0, this.tags().length - this.MAX_VISIBLE_TAGS));
+  hasMoreTags = computed(() => !this.searchQuery() && this.filteredTags().length > this.MAX_VISIBLE_TAGS);
+
+  hiddenTagsCount = computed(() => Math.max(0, this.filteredTags().length - this.MAX_VISIBLE_TAGS));
 
   ngOnInit(): void {
     this.loadTags();
@@ -310,6 +344,30 @@ export class ExplorePage implements OnInit {
 
   toggleTagsExpanded(): void {
     this.tagsExpanded.update(v => !v);
+  }
+
+  onSearchInput(event: any): void {
+    const value = event.detail.value || '';
+    this.searchQuery.set(value);
+  }
+
+  onSearchEnter(): void {
+    const query = this.searchQuery().trim().toLowerCase();
+    if (query) {
+      // If there's a matching tag, select it
+      const matchingTag = this.tags().find(t => t.name.toLowerCase() === query);
+      if (matchingTag) {
+        this.selectTag(matchingTag.name);
+        this.searchQuery.set('');
+      } else if (this.filteredTags().length === 1) {
+        // If only one filtered result, select it
+        this.selectTag(this.filteredTags()[0].name);
+        this.searchQuery.set('');
+      } else {
+        // Navigate to tag page directly
+        this.router.navigate(['/tag', query]);
+      }
+    }
   }
 
   openRecording(recording: Recording): void {

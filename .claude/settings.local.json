@@ -25,7 +25,8 @@
       "Bash(az staticwebapp list:*)",
       "Bash(powershell Compress-Archive -Path * -DestinationPath ../deploy.zip -Force)",
       "Bash(powershell \"Compress-Archive -Path ''./*'' -DestinationPath ''../deploy.zip'' -Force\")",
-      "Bash(az webapp deploy:*)"
+      "Bash(az webapp deploy:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
