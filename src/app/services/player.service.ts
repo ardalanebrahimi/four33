@@ -13,6 +13,7 @@ export interface PlayerState {
 @Injectable({ providedIn: 'root' })
 export class PlayerService {
   private audioElement: HTMLAudioElement | null = null;
+  private _isSimulating = false; // Track if we're using simulated playback
 
   // Core state signals
   private _currentRecording = signal<Recording | null>(null);
@@ -58,7 +59,8 @@ export class PlayerService {
     this.audioElement = new Audio();
 
     this.audioElement.addEventListener('timeupdate', () => {
-      if (this.audioElement) {
+      // Only update from audio element when not in simulation mode
+      if (this.audioElement && !this._isSimulating) {
         this._currentTime.set(this.audioElement.currentTime);
       }
     });
@@ -128,6 +130,7 @@ export class PlayerService {
     this._duration.set(recording.durationSeconds);
 
     if (recording.audioUrl) {
+      this._isSimulating = false;
       this.audioElement.src = recording.audioUrl;
       this.audioElement.load();
       this.audioElement.play().catch(err => {
@@ -144,6 +147,7 @@ export class PlayerService {
   private simulationInterval: any = null;
 
   private simulatePlayback(recording: Recording): void {
+    this._isSimulating = true;
     this._isPlaying.set(true);
     this._duration.set(recording.durationSeconds);
 
@@ -186,7 +190,10 @@ export class PlayerService {
     } else {
       const recording = this._currentRecording();
       if (recording) {
-        if (this.audioElement?.src) {
+        if (this._isSimulating) {
+          // Resume simulation from current position
+          this.resumeSimulation(recording);
+        } else if (this.audioElement?.src) {
           this.audioElement.play().catch(() => {
             this.simulatePlayback(recording);
           });
@@ -195,6 +202,31 @@ export class PlayerService {
         }
       }
     }
+  }
+
+  private resumeSimulation(recording: Recording): void {
+    this._isPlaying.set(true);
+
+    if (this.simulationInterval) {
+      clearInterval(this.simulationInterval);
+    }
+
+    this.simulationInterval = setInterval(() => {
+      if (!this._isPlaying()) return;
+
+      const newTime = this._currentTime() + 0.1;
+      if (newTime >= this._duration()) {
+        clearInterval(this.simulationInterval);
+        this._currentTime.set(0);
+        this._isPlaying.set(false);
+
+        if (this.hasNext()) {
+          this.next();
+        }
+      } else {
+        this._currentTime.set(newTime);
+      }
+    }, 100);
   }
 
   seek(time: number): void {
@@ -253,6 +285,7 @@ export class PlayerService {
 
   stop(): void {
     this.pause();
+    this._isSimulating = false;
     this._currentRecording.set(null);
     this._currentTime.set(0);
     this._duration.set(0);
