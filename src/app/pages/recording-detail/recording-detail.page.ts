@@ -45,7 +45,7 @@ import { LoadingComponent } from '../../components/loading/loading.component';
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button defaultHref="/tabs/explore" text="Explore"></ion-back-button>
+          <ion-back-button defaultHref="/explore" text="Explore"></ion-back-button>
         </ion-buttons>
         <ion-buttons slot="end">
           <button class="share-btn" (click)="shareRecording()">
@@ -795,9 +795,14 @@ export class RecordingDetailPage implements OnInit, OnDestroy {
     if (!rec) return;
 
     const shareUrl = `${window.location.origin}/recording/${rec.id}`;
+    const tags = rec.tags.slice(0, 3).map(t => `#${t.name}`).join(' ');
+    const title = rec.title || `Sound by ${rec.user.username}`;
+    const shareText = `${title}\n\n${tags}\n\nListen on 4'33" - an audio-only social platform for ambient sounds`;
+    const clipboardText = `${title}\n${tags}\n\n${shareUrl}`;
+
     const shareData = {
-      title: rec.title || `Recording by ${rec.user.username}`,
-      text: `Listen to this recording on 4'33"`,
+      title: `4'33" - ${title}`,
+      text: shareText,
       url: shareUrl
     };
 
@@ -805,8 +810,8 @@ export class RecordingDetailPage implements OnInit, OnDestroy {
       if (navigator.share && navigator.canShare?.(shareData)) {
         await navigator.share(shareData);
       } else {
-        // Fallback to clipboard
-        await navigator.clipboard.writeText(shareUrl);
+        // Fallback to clipboard with full text
+        await navigator.clipboard.writeText(clipboardText);
         this.shareToastMessage.set('Link copied to clipboard');
         this.showShareToast.set(true);
         setTimeout(() => this.showShareToast.set(false), 3000);
@@ -815,7 +820,7 @@ export class RecordingDetailPage implements OnInit, OnDestroy {
       // User cancelled or error - try clipboard fallback
       if ((err as Error).name !== 'AbortError') {
         try {
-          await navigator.clipboard.writeText(shareUrl);
+          await navigator.clipboard.writeText(clipboardText);
           this.shareToastMessage.set('Link copied to clipboard');
           this.showShareToast.set(true);
           setTimeout(() => this.showShareToast.set(false), 3000);
