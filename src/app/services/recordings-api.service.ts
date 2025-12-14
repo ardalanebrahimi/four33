@@ -82,7 +82,9 @@ export class RecordingsApiService {
     title?: string
   ): Observable<Recording> {
     const formData = new FormData();
-    formData.append('audioFile', audioFile, 'recording.wav');
+    // Determine filename based on blob type
+    const extension = audioFile.type === 'audio/mp4' ? 'm4a' : 'wav';
+    formData.append('audioFile', audioFile, `recording.${extension}`);
     formData.append('movement', movement);
     formData.append('durationSeconds', durationSeconds.toString());
     formData.append('tags', tags.join(','));

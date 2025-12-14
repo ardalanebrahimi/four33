@@ -11,6 +11,7 @@ import {
 } from '@ionic/angular/standalone';
 import { RecordingStateService } from '../../services/recording-state.service';
 import { RecordingsApiService } from '../../services/recordings-api.service';
+import { AudioCompressionService } from '../../services/audio-compression.service';
 import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
 import { WaveformComponent } from '../../components/waveform/waveform.component';
 import { MovementBadgeComponent } from '../../components/movement-badge/movement-badge.component';
@@ -111,9 +112,20 @@ import { firstValueFrom } from 'rxjs';
           [disabled]="!canUpload"
           (click)="upload()"
         >
-          {{ state.phase() === 'uploading' ? 'UPLOADING...' : 'UPLOAD' }}
+          {{ uploadButtonText }}
         </button>
       </div>
+
+      <!-- Loading Overlay -->
+      @if (isCompressing() || state.phase() === 'uploading') {
+        <div class="loading-overlay">
+          <div class="loading-content">
+            <div class="spinner"></div>
+            <p class="loading-text">{{ isCompressing() ? 'Compressing audio...' : 'Uploading...' }}</p>
+            <p class="loading-subtext">{{ isCompressing() ? 'Optimizing file size' : 'Almost there' }}</p>
+          </div>
+        </div>
+      }
     </ion-content>
   `,
   styles: [
@@ -255,6 +267,54 @@ import { firstValueFrom } from 'rxjs';
           cursor: not-allowed;
         }
       }
+
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+
+      .loading-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .spinner {
+        width: 48px;
+        height: 48px;
+        border: 3px solid var(--color-border);
+        border-top-color: var(--color-text-primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .loading-text {
+        font-size: 18px;
+        font-weight: 500;
+        color: var(--color-text-primary);
+        margin: 0;
+      }
+
+      .loading-subtext {
+        font-size: 14px;
+        color: var(--color-text-secondary);
+        margin: 0;
+      }
     `,
   ],
 })
@@ -262,9 +322,11 @@ export class TagsInputPage {
   private router = inject(Router);
   state = inject(RecordingStateService);
   private recordingsApi = inject(RecordingsApiService);
+  private compression = inject(AudioCompressionService);
 
   newTag = '';
   error = signal<string | null>(null);
+  isCompressing = signal(false);
 
   get canAddTag(): boolean {
     const normalized = this.newTag.trim().toLowerCase();
@@ -277,7 +339,13 @@ export class TagsInputPage {
   }
 
   get canUpload(): boolean {
-    return this.state.tags().length >= 3 && this.state.phase() !== 'uploading';
+    return this.state.tags().length >= 3 && this.state.phase() !== 'uploading' && !this.isCompressing();
+  }
+
+  get uploadButtonText(): string {
+    if (this.isCompressing()) return 'COMPRESSING...';
+    if (this.state.phase() === 'uploading') return 'UPLOADING...';
+    return 'UPLOAD';
   }
 
   get tagsNeeded(): string {
@@ -304,15 +372,32 @@ export class TagsInputPage {
   async upload(): Promise<void> {
     if (!this.canUpload) return;
 
-    this.state.startUpload();
     this.error.set(null);
 
     const draft = this.state.getDraft();
+    let audioBlob = draft.audioBlob!;
+
+    // Compress WAV to M4A
+    try {
+      this.isCompressing.set(true);
+      const originalSize = audioBlob.size;
+      audioBlob = await this.compression.compressToM4A(audioBlob);
+      const compressedSize = audioBlob.size;
+      console.log(`Compressed: ${(originalSize / 1024 / 1024).toFixed(2)}MB → ${(compressedSize / 1024 / 1024).toFixed(2)}MB (${Math.round((1 - compressedSize / originalSize) * 100)}% reduction)`);
+    } catch (err) {
+      console.error('Compression failed, uploading original:', err);
+      // Fall back to original WAV if compression fails
+    } finally {
+      this.isCompressing.set(false);
+    }
+
+    // Upload
+    this.state.startUpload();
 
     try {
       await firstValueFrom(
         this.recordingsApi.createRecording(
-          draft.audioBlob!,
+          audioBlob,
           draft.movement!,
           this.state.duration(),
           draft.tags,
