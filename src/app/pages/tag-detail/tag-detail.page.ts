@@ -11,6 +11,7 @@ import {
 import { TagsApiService } from '../../services/tags-api.service';
 import { RecordingsApiService } from '../../services/recordings-api.service';
 import { PlayerService } from '../../services/player.service';
+import { AnalyticsService } from '../../services/analytics.service';
 import { Recording, Tag } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { LoadingComponent } from '../../components/loading/loading.component';
@@ -149,6 +150,7 @@ export class TagDetailPage implements OnInit {
   private tagsApi = inject(TagsApiService);
   private recordingsApi = inject(RecordingsApiService);
   private player = inject(PlayerService);
+  private analytics = inject(AnalyticsService);
 
   tag = signal<Tag | null>(null);
   recordings = signal<Recording[]>([]);
@@ -158,6 +160,7 @@ export class TagDetailPage implements OnInit {
     const name = this.route.snapshot.paramMap.get('name');
     if (name) {
       this.loadTag(name);
+      this.analytics.trackView('tag', name);
     }
   }
 

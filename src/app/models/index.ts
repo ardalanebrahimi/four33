@@ -60,6 +60,7 @@ export interface Recording {
   tags: Tag[];
   title?: string;
   likesCount: number;
+  playCount: number;
   isLiked: boolean;
   likedByUsers?: User[];
   createdAt: Date;
@@ -91,3 +92,59 @@ export type RecordingPhase =
   | 'recorded'
   | 'tagging'
   | 'uploading';
+
+// Analytics models
+export interface PopularRecording extends Recording {
+  // Same as Recording, playCount already included
+}
+
+export interface PopularTag {
+  id: string;
+  name: string;
+  recordingCount: number;
+  playCount: number;
+  isFollowing: boolean;
+}
+
+export interface PopularUser {
+  id: string;
+  username: string;
+  avatarUrl?: string;
+  recordingsCount: number;
+  totalPlays: number;
+  followersCount: number;
+  isFollowing: boolean;
+}
+
+export interface TrendDataPoint {
+  date: Date;
+  count: number;
+}
+
+export interface RecordingTrends {
+  recordingId: string;
+  title?: string;
+  totalPlays: number;
+  dailyPlays: TrendDataPoint[];
+}
+
+export interface PlatformTrends {
+  dailyPlays: TrendDataPoint[];
+  dailyRecordings: TrendDataPoint[];
+  dailyUsers: TrendDataPoint[];
+}
+
+export interface OverviewStats {
+  totalRecordings: number;
+  totalPlays: number;
+  totalUsers: number;
+  totalTags: number;
+  playsToday: number;
+  playsThisWeek: number;
+  playsThisMonth: number;
+  newRecordingsToday: number;
+  newRecordingsThisWeek: number;
+  newUsersThisWeek: number;
+}
+
+export type AnalyticsPeriod = 'day' | 'week' | 'month' | 'year' | 'all';

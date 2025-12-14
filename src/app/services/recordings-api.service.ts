@@ -13,6 +13,7 @@ export interface RecordingDto {
   tags: TagDto[];
   title: string | null;
   likesCount: number;
+  playCount: number;
   isLiked: boolean;
   likedByUsers?: UserSummaryDto[];
   createdAt: string;
@@ -142,6 +143,7 @@ export class RecordingsApiService {
     })),
     title: dto.title ?? undefined,
     likesCount: dto.likesCount,
+    playCount: dto.playCount ?? 0,
     isLiked: dto.isLiked,
     likedByUsers: dto.likedByUsers?.map(u => ({
       id: u.id,

@@ -41,7 +41,12 @@ import { LoadingComponent } from '../../components/loading/loading.component';
       </ion-refresher>
 
       <div class="container">
-        <h1 class="title">Explore</h1>
+        <div class="header">
+          <h1 class="title">Explore</h1>
+          <button class="trends-btn" (click)="goToTrends()">
+            Trends
+          </button>
+        </div>
 
         <ion-searchbar
           class="tag-search"
@@ -115,10 +120,34 @@ import { LoadingComponent } from '../../components/loading/loading.component';
         padding: 40px 20px 100px;
       }
 
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+      }
+
       .title {
         font-size: 28px;
         font-weight: 600;
-        margin: 0 0 24px 0;
+        margin: 0;
+      }
+
+      .trends-btn {
+        padding: 8px 16px;
+        background: var(--color-surface-elevated, #1a1a1a);
+        border: 1px solid var(--color-border, #222);
+        border-radius: 20px;
+        color: var(--color-text-primary, #fff);
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 150ms ease;
+      }
+
+      .trends-btn:hover {
+        background: var(--color-surface, #0a0a0a);
+        border-color: var(--color-border-light, #333);
       }
 
       .tag-search {
@@ -376,6 +405,10 @@ export class ExplorePage implements OnInit {
 
   openUser(user: any): void {
     this.router.navigate(['/user', user.id]);
+  }
+
+  goToTrends(): void {
+    this.router.navigate(['/trends']);
   }
 
   playRecording(recording: Recording): void {

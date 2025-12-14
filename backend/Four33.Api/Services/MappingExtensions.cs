@@ -81,6 +81,7 @@ public static class MappingExtensions
             Tags: recording.Tags.Select(t => t.ToDto(currentUserId)).ToList(),
             Title: recording.Title,
             LikesCount: recording.Likes.Count,
+            PlayCount: recording.PlayCount,
             IsLiked: currentUserId.HasValue && recording.Likes.Any(l => l.UserId == currentUserId),
             LikedByUsers: recording.Likes
                 .OrderByDescending(l => l.CreatedAt)
@@ -104,6 +105,7 @@ public static class MappingExtensions
             Tags: recording.Tags.Select(t => t.ToDto(currentUserId)).ToList(),
             Title: recording.Title,
             LikesCount: recording.Likes.Count,
+            PlayCount: recording.PlayCount,
             IsLiked: currentUserId.HasValue && recording.Likes.Any(l => l.UserId == currentUserId),
             CreatedAt: recording.CreatedAt,
             TimeAgo: GetTimeAgo(recording.CreatedAt)

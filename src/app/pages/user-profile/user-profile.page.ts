@@ -11,6 +11,7 @@ import {
 import { UsersApiService } from '../../services/users-api.service';
 import { RecordingsApiService } from '../../services/recordings-api.service';
 import { PlayerService } from '../../services/player.service';
+import { AnalyticsService } from '../../services/analytics.service';
 import { Recording, User } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.component';
@@ -191,6 +192,7 @@ export class UserProfilePage implements OnInit {
   private usersApi = inject(UsersApiService);
   private recordingsApi = inject(RecordingsApiService);
   private player = inject(PlayerService);
+  private analytics = inject(AnalyticsService);
 
   user = signal<User | null>(null);
   recordings = signal<Recording[]>([]);
@@ -200,6 +202,7 @@ export class UserProfilePage implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.loadUser(id);
+      this.analytics.trackView('user', id);
     }
   }
 

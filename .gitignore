@@ -62,3 +62,9 @@ backend/Four33.Api/publish/
 src/environments/environment.ts
 src/environments/environment.prod.ts
 frontend.zip
+webapp-logs/
+backend/deploy.zip
+webapp-logs.zip
+
+# Claude Code local settings (may contain secrets)
+.claude/settings.local.json

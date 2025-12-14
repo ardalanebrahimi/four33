@@ -10,6 +10,7 @@ public record RecordingDto(
     List<TagDto> Tags,
     string? Title,
     int LikesCount,
+    int PlayCount,
     bool IsLiked,
     List<UserSummaryDto>? LikedByUsers,
     DateTime CreatedAt,
@@ -26,6 +27,7 @@ public record RecordingListDto(
     List<TagDto> Tags,
     string? Title,
     int LikesCount,
+    int PlayCount,
     bool IsLiked,
     DateTime CreatedAt,
     string TimeAgo

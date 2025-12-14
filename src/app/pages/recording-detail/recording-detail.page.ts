@@ -16,6 +16,7 @@ import { RecordingsApiService } from '../../services/recordings-api.service';
 import { UsersApiService } from '../../services/users-api.service';
 import { PlayerService } from '../../services/player.service';
 import { AuthService } from '../../services/auth.service';
+import { AnalyticsService } from '../../services/analytics.service';
 import { Recording } from '../../models';
 import { WaveformComponent } from '../../components/waveform/waveform.component';
 import { MovementBadgeComponent } from '../../components/movement-badge/movement-badge.component';
@@ -607,6 +608,7 @@ export class RecordingDetailPage implements OnInit, OnDestroy {
   private router = inject(Router);
   private recordingsApi = inject(RecordingsApiService);
   private usersApi = inject(UsersApiService);
+  private analytics = inject(AnalyticsService);
   player = inject(PlayerService);
   auth = inject(AuthService);
 
@@ -650,6 +652,8 @@ export class RecordingDetailPage implements OnInit, OnDestroy {
       next: (rec) => {
         this.recording.set(rec);
         this.isLoading.set(false);
+        // Track page view
+        this.analytics.trackView('recording', id);
       },
       error: () => {
         this.isLoading.set(false);

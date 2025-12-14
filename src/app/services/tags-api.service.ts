@@ -94,6 +94,7 @@ export class TagsApiService {
     })),
     title: dto.title ?? undefined,
     likesCount: dto.likesCount,
+    playCount: dto.playCount ?? 0,
     isLiked: dto.isLiked,
     createdAt: new Date(dto.createdAt),
     timeAgo: dto.timeAgo

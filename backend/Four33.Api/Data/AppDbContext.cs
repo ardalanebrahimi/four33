@@ -14,6 +14,9 @@ public class AppDbContext : DbContext
     public DbSet<Like> Likes => Set<Like>();
     public DbSet<UserFollow> UserFollows => Set<UserFollow>();
     public DbSet<TagFollow> TagFollows => Set<TagFollow>();
+    public DbSet<PlayEvent> PlayEvents => Set<PlayEvent>();
+    public DbSet<ViewEvent> ViewEvents => Set<ViewEvent>();
+    public DbSet<SearchEvent> SearchEvents => Set<SearchEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -127,6 +130,57 @@ public class AppDbContext : DbContext
                 .WithMany(t => t.Followers)
                 .HasForeignKey(e => e.TagId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // PlayEvent
+        modelBuilder.Entity<PlayEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.RecordingId);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.PlayedAt).IsDescending();
+            entity.Property(e => e.Source).HasMaxLength(50);
+
+            entity.HasOne(e => e.Recording)
+                .WithMany(r => r.PlayEvents)
+                .HasForeignKey(e => e.RecordingId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ViewEvent
+        modelBuilder.Entity<ViewEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.ViewedAt).IsDescending();
+            entity.HasIndex(e => new { e.PageType, e.PageId });
+            entity.Property(e => e.PageType).HasMaxLength(50);
+            entity.Property(e => e.PageId).HasMaxLength(100);
+            entity.Property(e => e.Source).HasMaxLength(100);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // SearchEvent
+        modelBuilder.Entity<SearchEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.SearchedAt).IsDescending();
+            entity.Property(e => e.Query).HasMaxLength(100);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

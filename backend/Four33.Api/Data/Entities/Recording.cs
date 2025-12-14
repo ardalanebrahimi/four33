@@ -11,8 +11,13 @@ public class Recording
     public string? Title { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    // Analytics
+    public int PlayCount { get; set; } = 0;
+    public int UniqueListeners { get; set; } = 0;
+
     // Navigation properties
     public User User { get; set; } = null!;
     public ICollection<RecordingTag> Tags { get; set; } = [];
     public ICollection<Like> Likes { get; set; } = [];
+    public ICollection<PlayEvent> PlayEvents { get; set; } = [];
 }

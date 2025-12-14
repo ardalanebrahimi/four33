@@ -5,7 +5,7 @@ import { MovementBadgeComponent } from '../movement-badge/movement-badge.compone
 import { TagChipComponent } from '../tag-chip/tag-chip.component';
 import { IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { play, pause, heart, heartOutline } from 'ionicons/icons';
+import { play, pause, heart, heartOutline, headset } from 'ionicons/icons';
 import { PlayerService } from '../../services/player.service';
 
 @Component({
@@ -32,10 +32,18 @@ import { PlayerService } from '../../services/player.service';
         </div>
         <div class="meta">
           <app-movement-badge [movement]="recording.movement" [small]="true"></app-movement-badge>
-          <button class="like-btn" [class.liked]="recording.isLiked" (click)="likeClick($event)">
-            <ion-icon [name]="recording.isLiked ? 'heart' : 'heart-outline'"></ion-icon>
-            <span>{{ recording.likesCount }}</span>
-          </button>
+          <div class="stats">
+            @if (recording.playCount > 0) {
+              <span class="stat-item plays">
+                <ion-icon name="headset"></ion-icon>
+                {{ formatCount(recording.playCount) }}
+              </span>
+            }
+            <button class="like-btn" [class.liked]="recording.isLiked" (click)="likeClick($event)">
+              <ion-icon [name]="recording.isLiked ? 'heart' : 'heart-outline'"></ion-icon>
+              <span>{{ recording.likesCount }}</span>
+            </button>
+          </div>
         </div>
       </div>
       <div class="tags" (click)="$event.stopPropagation()">
@@ -135,6 +143,24 @@ import { PlayerService } from '../../services/player.service';
         gap: 12px;
       }
 
+      .stats {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--color-text-secondary, #888);
+        font-size: 13px;
+      }
+
+      .stat-item ion-icon {
+        font-size: 14px;
+      }
+
       .like-btn {
         display: flex;
         align-items: center;
@@ -174,7 +200,7 @@ export class RecordingCardComponent {
   @Output() onPlay = new EventEmitter<Recording>();
 
   constructor() {
-    addIcons({ play, pause, heart, heartOutline });
+    addIcons({ play, pause, heart, heartOutline, headset });
   }
 
   isCurrentlyPlaying(): boolean {
@@ -207,5 +233,15 @@ export class RecordingCardComponent {
     event.stopPropagation();
     event.preventDefault();
     this.onLike.emit(this.recording);
+  }
+
+  formatCount(count: number): string {
+    if (count >= 1000000) {
+      return (count / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    }
+    if (count >= 1000) {
+      return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    }
+    return count.toString();
   }
 }

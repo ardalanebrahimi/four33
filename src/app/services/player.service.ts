@@ -1,5 +1,6 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import { Recording } from '../models';
+import { AnalyticsService, PlaySource } from './analytics.service';
 
 export interface PlayerState {
   recording: Recording | null;
@@ -12,8 +13,10 @@ export interface PlayerState {
 
 @Injectable({ providedIn: 'root' })
 export class PlayerService {
+  private analytics = inject(AnalyticsService);
   private audioElement: HTMLAudioElement | null = null;
   private _isSimulating = false; // Track if we're using simulated playback
+  private _playSource: PlaySource = 'explore';
 
   // Core state signals
   private _currentRecording = signal<Recording | null>(null);
@@ -90,7 +93,9 @@ export class PlayerService {
     });
   }
 
-  play(recording: Recording, playlist?: Recording[]): void {
+  play(recording: Recording, playlist?: Recording[], source: PlaySource = 'explore'): void {
+    this._playSource = source;
+
     // If a playlist is provided, set it
     if (playlist && playlist.length > 0) {
       this._playlist.set(playlist);
@@ -114,8 +119,17 @@ export class PlayerService {
   private loadAndPlay(recording: Recording): void {
     if (!this.audioElement) return;
 
+    // Track play end for previous recording
+    const previousRecording = this._currentRecording();
+    if (previousRecording && previousRecording.id !== recording.id) {
+      const completedPercent = this._duration() > 0
+        ? (this._currentTime() / this._duration()) * 100
+        : 0;
+      this.analytics.trackPlayEnd(previousRecording.id, completedPercent);
+    }
+
     // If same recording, just toggle play/pause
-    if (this._currentRecording()?.id === recording.id) {
+    if (previousRecording?.id === recording.id) {
       if (this._isPlaying()) {
         this.pause();
       } else {
@@ -123,6 +137,9 @@ export class PlayerService {
       }
       return;
     }
+
+    // Track new play start
+    this.analytics.trackPlayStart(recording, this._playSource);
 
     // Load new recording
     this._currentRecording.set(recording);
@@ -284,6 +301,15 @@ export class PlayerService {
   }
 
   stop(): void {
+    // Track play end before stopping
+    const recording = this._currentRecording();
+    if (recording) {
+      const completedPercent = this._duration() > 0
+        ? (this._currentTime() / this._duration()) * 100
+        : 0;
+      this.analytics.trackPlayEnd(recording.id, completedPercent);
+    }
+
     this.pause();
     this._isSimulating = false;
     this._currentRecording.set(null);

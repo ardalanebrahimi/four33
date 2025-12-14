@@ -53,4 +53,10 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/tags-input/tags-input.page').then((m) => m.TagsInputPage),
   },
+  {
+    path: 'trends',
+    loadComponent: () =>
+      import('./pages/trends/trends.page').then((m) => m.TrendsPage),
+    canActivate: [authGuard],
+  },
 ];
