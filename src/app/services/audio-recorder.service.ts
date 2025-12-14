@@ -1,13 +1,28 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import RecordRTC from 'recordrtc';
+
+export type RecordingFormat = 'wav' | 'mp4';
 
 @Injectable({ providedIn: 'root' })
 export class AudioRecorderService {
   private recorder: RecordRTC | null = null;
+  private mediaRecorder: MediaRecorder | null = null;
+  private recordedChunks: Blob[] = [];
   private stream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private amplitudeHistory: number[] = [];
+
+  // Developer toggle for recording format
+  // 'wav' = RecordRTC (high quality, large files ~6MB/30s)
+  // 'mp4' = Native MediaRecorder (compressed, small files ~400KB/30s)
+  private _format = signal<RecordingFormat>('mp4');
+  readonly format = this._format.asReadonly();
+
+  setFormat(format: RecordingFormat): void {
+    this._format.set(format);
+    console.log(`Recording format set to: ${format}`);
+  }
 
   async requestPermissions(): Promise<boolean> {
     try {
@@ -21,14 +36,17 @@ export class AudioRecorderService {
 
   async startRecording(): Promise<void> {
     this.amplitudeHistory = [];
+    this.recordedChunks = [];
 
-    // Request maximum quality audio - no processing for pure ambient capture
+    const format = this._format();
+
+    // Audio constraints differ by format
     const audioConstraints: MediaTrackConstraints & Record<string, unknown> = {
       echoCancellation: false,
       noiseSuppression: false,
       autoGainControl: false,
-      sampleRate: { ideal: 96000, min: 48000 },  // Studio quality (96kHz)
       channelCount: { ideal: 2 },
+      ...(format === 'wav' ? { sampleRate: { ideal: 96000, min: 48000 } } : {}),
     };
 
     this.stream = await navigator.mediaDevices.getUserMedia({
@@ -43,53 +61,124 @@ export class AudioRecorderService {
     // Setup analyser for waveform
     this.audioContext = new AudioContext({ sampleRate: actualSampleRate });
     this.analyser = this.audioContext.createAnalyser();
-    this.analyser.fftSize = 512;  // Higher resolution for visualization
+    this.analyser.fftSize = 512;
     this.analyser.smoothingTimeConstant = 0.3;
     const source = this.audioContext.createMediaStreamSource(this.stream);
     source.connect(this.analyser);
 
-    this.recorder = new RecordRTC(this.stream, {
-      type: 'audio',
-      mimeType: 'audio/wav',                      // Uncompressed WAV for max quality
-      recorderType: RecordRTC.StereoAudioRecorder,
-      numberOfAudioChannels: 2,
-      desiredSampRate: actualSampleRate,
-      audioBitsPerSecond: 512000,                 // 512kbps for compressed fallback
-      bufferSize: 4096,                           // Larger buffer = less glitches
-    });
-    this.recorder.startRecording();
+    if (format === 'wav') {
+      // RecordRTC for high-quality WAV
+      this.recorder = new RecordRTC(this.stream, {
+        type: 'audio',
+        mimeType: 'audio/wav',
+        recorderType: RecordRTC.StereoAudioRecorder,
+        numberOfAudioChannels: 2,
+        desiredSampRate: actualSampleRate,
+        audioBitsPerSecond: 512000,
+        bufferSize: 4096,
+      });
+      this.recorder.startRecording();
+      console.log(`Recording WAV at ${actualSampleRate}Hz (RecordRTC)`);
+    } else {
+      // Native MediaRecorder for compressed MP4/WebM
+      const mimeType = this.getSupportedMimeType();
+      this.mediaRecorder = new MediaRecorder(this.stream, {
+        mimeType,
+        audioBitsPerSecond: 128000, // 128kbps for good quality
+      });
 
-    console.log(`Recording at ${actualSampleRate}Hz`);
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.recordedChunks.push(event.data);
+        }
+      };
+
+      this.mediaRecorder.start(1000); // Collect data every second
+      console.log(`Recording ${mimeType} at 128kbps (MediaRecorder)`);
+    }
+  }
+
+  private getSupportedMimeType(): string {
+    // Try MP4/AAC first (best iOS support), then WebM/Opus (best quality)
+    const types = [
+      'audio/mp4',
+      'audio/mp4;codecs=mp4a.40.2',
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+    ];
+
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+
+    // Fallback to default
+    return '';
   }
 
   getAmplitude(): number {
     if (!this.analyser) return 0;
     const data = new Uint8Array(this.analyser.frequencyBinCount);
     this.analyser.getByteFrequencyData(data);
-    const amplitude = (data.reduce((a, b) => a + b, 0) / data.length / 255) * 100;
+    const amplitude =
+      (data.reduce((a, b) => a + b, 0) / data.length / 255) * 100;
     this.amplitudeHistory.push(amplitude);
     return amplitude;
   }
 
   async stopRecording(): Promise<{ blob: Blob; waveform: number[] }> {
-    return new Promise((resolve, reject) => {
-      if (!this.recorder) {
-        reject(new Error('No recording in progress'));
-        return;
-      }
+    const format = this._format();
 
-      this.recorder.stopRecording(() => {
-        const blob = this.recorder!.getBlob();
-        const waveform = this.normalizeWaveform(this.amplitudeHistory);
-        this.cleanup();
-        resolve({ blob, waveform });
+    if (format === 'wav') {
+      // RecordRTC stop
+      return new Promise((resolve, reject) => {
+        if (!this.recorder) {
+          reject(new Error('No recording in progress'));
+          return;
+        }
+
+        this.recorder.stopRecording(() => {
+          const blob = this.recorder!.getBlob();
+          const waveform = this.normalizeWaveform(this.amplitudeHistory);
+          console.log(
+            `Recorded WAV: ${(blob.size / 1024 / 1024).toFixed(2)}MB`
+          );
+          this.cleanup();
+          resolve({ blob, waveform });
+        });
       });
-    });
+    } else {
+      // MediaRecorder stop
+      return new Promise((resolve, reject) => {
+        if (!this.mediaRecorder) {
+          reject(new Error('No recording in progress'));
+          return;
+        }
+
+        this.mediaRecorder.onstop = () => {
+          const mimeType = this.mediaRecorder?.mimeType || 'audio/mp4';
+          const blob = new Blob(this.recordedChunks, { type: mimeType });
+          const waveform = this.normalizeWaveform(this.amplitudeHistory);
+          console.log(
+            `Recorded ${mimeType}: ${(blob.size / 1024).toFixed(0)}KB`
+          );
+          this.cleanup();
+          resolve({ blob, waveform });
+        };
+
+        this.mediaRecorder.stop();
+      });
+    }
   }
 
   cancelRecording(): void {
     if (this.recorder) {
       this.recorder.reset();
+    }
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      this.mediaRecorder.stop();
     }
     this.cleanup();
   }
@@ -124,5 +213,7 @@ export class AudioRecorderService {
     }
     this.analyser = null;
     this.recorder = null;
+    this.mediaRecorder = null;
+    this.recordedChunks = [];
   }
 }

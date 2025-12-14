@@ -11,7 +11,6 @@ import {
 } from '@ionic/angular/standalone';
 import { RecordingStateService } from '../../services/recording-state.service';
 import { RecordingsApiService } from '../../services/recordings-api.service';
-import { AudioCompressionService } from '../../services/audio-compression.service';
 import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
 import { WaveformComponent } from '../../components/waveform/waveform.component';
 import { MovementBadgeComponent } from '../../components/movement-badge/movement-badge.component';
@@ -117,12 +116,11 @@ import { firstValueFrom } from 'rxjs';
       </div>
 
       <!-- Loading Overlay -->
-      @if (isCompressing() || state.phase() === 'uploading') {
+      @if (isUploading()) {
         <div class="loading-overlay">
           <div class="loading-content">
             <div class="spinner"></div>
-            <p class="loading-text">{{ isCompressing() ? 'Compressing audio...' : 'Uploading...' }}</p>
-            <p class="loading-subtext">{{ isCompressing() ? 'Optimizing file size' : 'Almost there' }}</p>
+            <p class="loading-text">Uploading...</p>
           </div>
         </div>
       }
@@ -304,14 +302,7 @@ import { firstValueFrom } from 'rxjs';
       }
 
       .loading-text {
-        font-size: 18px;
-        font-weight: 500;
-        color: var(--color-text-primary);
-        margin: 0;
-      }
-
-      .loading-subtext {
-        font-size: 14px;
+        font-size: 16px;
         color: var(--color-text-secondary);
         margin: 0;
       }
@@ -322,11 +313,10 @@ export class TagsInputPage {
   private router = inject(Router);
   state = inject(RecordingStateService);
   private recordingsApi = inject(RecordingsApiService);
-  private compression = inject(AudioCompressionService);
 
   newTag = '';
   error = signal<string | null>(null);
-  isCompressing = signal(false);
+  isUploading = signal(false);
 
   get canAddTag(): boolean {
     const normalized = this.newTag.trim().toLowerCase();
@@ -339,13 +329,11 @@ export class TagsInputPage {
   }
 
   get canUpload(): boolean {
-    return this.state.tags().length >= 3 && this.state.phase() !== 'uploading' && !this.isCompressing();
+    return this.state.tags().length >= 3 && !this.isUploading();
   }
 
   get uploadButtonText(): string {
-    if (this.isCompressing()) return 'COMPRESSING...';
-    if (this.state.phase() === 'uploading') return 'UPLOADING...';
-    return 'UPLOAD';
+    return this.isUploading() ? 'UPLOADING...' : 'UPLOAD';
   }
 
   get tagsNeeded(): string {
@@ -373,31 +361,14 @@ export class TagsInputPage {
     if (!this.canUpload) return;
 
     this.error.set(null);
+    this.isUploading.set(true);
 
     const draft = this.state.getDraft();
-    let audioBlob = draft.audioBlob!;
-
-    // Compress WAV to M4A
-    try {
-      this.isCompressing.set(true);
-      const originalSize = audioBlob.size;
-      audioBlob = await this.compression.compressToM4A(audioBlob);
-      const compressedSize = audioBlob.size;
-      console.log(`Compressed: ${(originalSize / 1024 / 1024).toFixed(2)}MB → ${(compressedSize / 1024 / 1024).toFixed(2)}MB (${Math.round((1 - compressedSize / originalSize) * 100)}% reduction)`);
-    } catch (err) {
-      console.error('Compression failed, uploading original:', err);
-      // Fall back to original WAV if compression fails
-    } finally {
-      this.isCompressing.set(false);
-    }
-
-    // Upload
-    this.state.startUpload();
 
     try {
       await firstValueFrom(
         this.recordingsApi.createRecording(
-          audioBlob,
+          draft.audioBlob!,
           draft.movement!,
           this.state.duration(),
           draft.tags,
@@ -411,7 +382,8 @@ export class TagsInputPage {
     } catch (err: any) {
       const message = err?.error?.error || err?.message || 'Upload failed';
       this.error.set(message);
-      this.state.goToTagging(); // Reset phase back from uploading
+    } finally {
+      this.isUploading.set(false);
     }
   }
 }
