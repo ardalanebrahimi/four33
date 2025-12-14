@@ -95,6 +95,23 @@ type AuthMode = 'login' | 'register';
 
           <!-- Google Sign-In Button Container -->
           <div #googleButtonContainer class="google-button-container"></div>
+
+          <!-- Fallback button if Google doesn't load -->
+          @if (showFallbackGoogleButton()) {
+            <button
+              class="google-button-fallback"
+              [disabled]="auth.isLoading()"
+              (click)="signInWithGoogleFallback()"
+            >
+              <svg class="google-icon" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Continue with Google
+            </button>
+          }
         </div>
       </div>
     </ion-content>
@@ -239,6 +256,39 @@ type AuthMode = 'login' | 'register';
       width: 100%;
       display: flex;
       justify-content: center;
+      min-height: 44px;
+    }
+
+    .google-button-fallback {
+      width: 100%;
+      padding: 14px 16px;
+      background: var(--color-surface-elevated);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      color: var(--color-text-primary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      transition: all 0.15s ease;
+
+      &:hover:not(:disabled) {
+        border-color: var(--color-border-light);
+        background: var(--color-surface);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+
+    .google-icon {
+      width: 20px;
+      height: 20px;
     }
   `]
 })
@@ -254,9 +304,11 @@ export class AuthPage implements OnInit, AfterViewInit {
   email = '';
   password = '';
   error = signal<string | null>(null);
+  showFallbackGoogleButton = signal(false);
 
   private googleClientId = environment.googleClientId;
   private googleInitialized = false;
+  private googleLoadTimeout: any;
 
   get canSubmit(): boolean {
     if (this.mode() === 'login') {
@@ -277,16 +329,31 @@ export class AuthPage implements OnInit, AfterViewInit {
   }
 
   private initializeGoogleSignIn(): void {
+    // Set a timeout to show fallback button if Google doesn't load
+    this.googleLoadTimeout = setTimeout(() => {
+      if (!this.googleInitialized) {
+        console.warn('Google Sign-In library did not load, showing fallback button');
+        this.showFallbackGoogleButton.set(true);
+      }
+    }, 3000);
+
     if (typeof google === 'undefined') {
       // Google script not loaded yet, wait for it
       const checkGoogle = setInterval(() => {
         if (typeof google !== 'undefined') {
           clearInterval(checkGoogle);
+          clearTimeout(this.googleLoadTimeout);
           this.setupGoogleSignIn();
         }
       }, 100);
+
+      // Stop checking after 5 seconds
+      setTimeout(() => {
+        clearInterval(checkGoogle);
+      }, 5000);
       return;
     }
+    clearTimeout(this.googleLoadTimeout);
     this.setupGoogleSignIn();
   }
 
@@ -305,19 +372,29 @@ export class AuthPage implements OnInit, AfterViewInit {
   }
 
   private renderGoogleButton(): void {
-    if (!this.googleButtonContainer?.nativeElement) return;
+    if (!this.googleButtonContainer?.nativeElement) {
+      this.showFallbackGoogleButton.set(true);
+      return;
+    }
 
-    google.accounts.id.renderButton(
-      this.googleButtonContainer.nativeElement,
-      {
-        type: 'standard',
-        theme: 'filled_black',
-        size: 'large',
-        text: 'continue_with',
-        shape: 'rectangular',
-        width: 280,
-      }
-    );
+    try {
+      google.accounts.id.renderButton(
+        this.googleButtonContainer.nativeElement,
+        {
+          type: 'standard',
+          theme: 'filled_black',
+          size: 'large',
+          text: 'continue_with',
+          shape: 'rectangular',
+          width: 280,
+        }
+      );
+      // Hide fallback since native button rendered
+      this.showFallbackGoogleButton.set(false);
+    } catch (err) {
+      console.error('Failed to render Google button:', err);
+      this.showFallbackGoogleButton.set(true);
+    }
   }
 
   private handleGoogleCallback(response: any): void {
@@ -349,6 +426,21 @@ export class AuthPage implements OnInit, AfterViewInit {
     } catch (err: any) {
       const message = err?.error?.error || err?.message || 'Something went wrong';
       this.error.set(message);
+    }
+  }
+
+  signInWithGoogleFallback(): void {
+    // Try to use the Google prompt if available
+    if (typeof google !== 'undefined' && this.googleInitialized) {
+      google.accounts.id.prompt((notification: any) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          console.warn('Google prompt not displayed:', notification.getNotDisplayedReason?.() || notification.getSkippedReason?.());
+          this.error.set('Google Sign-In is not available. Please try email login.');
+        }
+      });
+    } else {
+      // Google library not available, show error
+      this.error.set('Google Sign-In is not available on this device. Please use email login.');
     }
   }
 }
