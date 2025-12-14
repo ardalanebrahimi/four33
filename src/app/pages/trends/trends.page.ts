@@ -3,6 +3,10 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
   IonContent,
+  IonHeader,
+  IonToolbar,
+  IonButtons,
+  IonBackButton,
   IonSegment,
   IonSegmentButton,
   IonLabel,
@@ -22,6 +26,7 @@ import {
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
 import { LoadingComponent } from '../../components/loading/loading.component';
+import { MiniPlayerComponent } from '../../components/mini-player/mini-player.component';
 
 @Component({
   selector: 'app-trends',
@@ -29,6 +34,10 @@ import { LoadingComponent } from '../../components/loading/loading.component';
   imports: [
     CommonModule,
     IonContent,
+    IonHeader,
+    IonToolbar,
+    IonButtons,
+    IonBackButton,
     IonSegment,
     IonSegmentButton,
     IonLabel,
@@ -37,8 +46,17 @@ import { LoadingComponent } from '../../components/loading/loading.component';
     RecordingCardComponent,
     TagChipComponent,
     LoadingComponent,
+    MiniPlayerComponent,
   ],
   template: `
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-back-button defaultHref="/explore" text="Back"></ion-back-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
     <ion-content [fullscreen]="true">
       <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
         <ion-refresher-content pullingText="Pull to refresh" refreshingSpinner="crescent"></ion-refresher-content>
@@ -153,6 +171,10 @@ import { LoadingComponent } from '../../components/loading/loading.component';
         </section>
       </div>
     </ion-content>
+
+    <div class="mini-player-wrapper">
+      <app-mini-player></app-mini-player>
+    </div>
   `,
   styles: [`
     .container {
@@ -317,6 +339,10 @@ import { LoadingComponent } from '../../components/loading/loading.component';
       color: var(--color-text-secondary, #888);
       text-align: center;
       padding: 20px;
+    }
+
+    .mini-player-wrapper ::ng-deep .mini-player {
+      bottom: 0 !important;
     }
   `]
 })

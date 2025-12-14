@@ -15,6 +15,7 @@ import { AnalyticsService } from '../../services/analytics.service';
 import { Recording, Tag } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { LoadingComponent } from '../../components/loading/loading.component';
+import { MiniPlayerComponent } from '../../components/mini-player/mini-player.component';
 
 @Component({
   selector: 'app-tag-detail',
@@ -28,6 +29,7 @@ import { LoadingComponent } from '../../components/loading/loading.component';
     IonBackButton,
     RecordingCardComponent,
     LoadingComponent,
+    MiniPlayerComponent,
   ],
   template: `
     <ion-header>
@@ -77,6 +79,10 @@ import { LoadingComponent } from '../../components/loading/loading.component';
         </div>
       }
     </ion-content>
+
+    <div class="mini-player-wrapper">
+      <app-mini-player></app-mini-player>
+    </div>
   `,
   styles: [
     `
@@ -140,6 +146,10 @@ import { LoadingComponent } from '../../components/loading/loading.component';
         text-align: center;
         padding: 60px 20px;
         color: var(--color-text-tertiary);
+      }
+
+      .mini-player-wrapper ::ng-deep .mini-player {
+        bottom: 0 !important;
       }
     `,
   ],

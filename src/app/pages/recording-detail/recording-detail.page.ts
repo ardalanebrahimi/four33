@@ -23,6 +23,7 @@ import { MovementBadgeComponent } from '../../components/movement-badge/movement
 import { TagChipComponent } from '../../components/tag-chip/tag-chip.component';
 import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.component';
 import { LoadingComponent } from '../../components/loading/loading.component';
+import { MiniPlayerComponent } from '../../components/mini-player/mini-player.component';
 
 @Component({
   selector: 'app-recording-detail',

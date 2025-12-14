@@ -16,6 +16,7 @@ import { Recording, User } from '../../models';
 import { RecordingCardComponent } from '../../components/recording-card/recording-card.component';
 import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.component';
 import { LoadingComponent } from '../../components/loading/loading.component';
+import { MiniPlayerComponent } from '../../components/mini-player/mini-player.component';
 
 @Component({
   selector: 'app-user-profile',
@@ -30,6 +31,7 @@ import { LoadingComponent } from '../../components/loading/loading.component';
     RecordingCardComponent,
     UserAvatarComponent,
     LoadingComponent,
+    MiniPlayerComponent,
   ],
   template: `
     <ion-header>
@@ -94,6 +96,10 @@ import { LoadingComponent } from '../../components/loading/loading.component';
         </div>
       }
     </ion-content>
+
+    <div class="mini-player-wrapper">
+      <app-mini-player></app-mini-player>
+    </div>
   `,
   styles: [
     `
@@ -182,6 +188,10 @@ import { LoadingComponent } from '../../components/loading/loading.component';
         justify-content: center;
         align-items: center;
         height: 50vh;
+      }
+
+      .mini-player-wrapper ::ng-deep .mini-player {
+        bottom: 0 !important;
       }
     `,
   ],
