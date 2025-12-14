@@ -82,9 +82,11 @@ export class AudioRecorderService {
     } else {
       // Native MediaRecorder for compressed MP4/WebM
       const mimeType = this.getSupportedMimeType();
+      // 320kbps for near-transparent quality (still ~10x smaller than WAV)
+      const bitrate = 320000;
       this.mediaRecorder = new MediaRecorder(this.stream, {
         mimeType,
-        audioBitsPerSecond: 128000, // 128kbps for good quality
+        audioBitsPerSecond: bitrate,
       });
 
       this.mediaRecorder.ondataavailable = (event) => {
@@ -94,18 +96,18 @@ export class AudioRecorderService {
       };
 
       this.mediaRecorder.start(1000); // Collect data every second
-      console.log(`Recording ${mimeType} at 128kbps (MediaRecorder)`);
+      console.log(`Recording ${mimeType} at ${bitrate / 1000}kbps (MediaRecorder)`);
     }
   }
 
   private getSupportedMimeType(): string {
-    // Try MP4/AAC first (best iOS support), then WebM/Opus (best quality)
+    // Prioritize Opus (best quality per bitrate), then AAC for iOS compatibility
     const types = [
-      'audio/mp4',
-      'audio/mp4;codecs=mp4a.40.2',
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/ogg;codecs=opus',
+      'audio/webm;codecs=opus',  // Best quality - Chrome, Firefox, Android
+      'audio/ogg;codecs=opus',   // Firefox fallback
+      'audio/mp4',               // iOS/Safari
+      'audio/mp4;codecs=mp4a.40.2', // AAC explicit
+      'audio/webm',              // Generic WebM
     ];
 
     for (const type of types) {
