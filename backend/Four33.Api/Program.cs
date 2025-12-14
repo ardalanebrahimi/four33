@@ -82,15 +82,7 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:4200",
-                "http://localhost:8100",
-                "https://localhost:4200",
-                "https://localhost",
-                "capacitor://localhost",
-                "ionic://localhost",
-                "https://four33-api-dmgddtanecdzbnh8.westeurope-01.azurewebsites.net"
-            )
+        policy.SetIsOriginAllowed(origin => true)  // Allow any origin for now
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -147,6 +139,9 @@ app.UseSwaggerUI(options =>
     options.RoutePrefix = "swagger";
 });
 
+// CORS must be before other middleware
+app.UseCors();
+
 app.UseHttpsRedirection();
 
 // Serve static files for local development uploads
@@ -160,8 +155,6 @@ if (app.Environment.IsDevelopment())
         RequestPath = "/uploads"
     });
 }
-
-app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();
