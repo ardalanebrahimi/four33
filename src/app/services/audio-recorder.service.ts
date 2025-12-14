@@ -16,7 +16,7 @@ export class AudioRecorderService {
   // Developer toggle for recording format
   // 'wav' = RecordRTC (high quality, large files ~6MB/30s)
   // 'mp4' = Native MediaRecorder (compressed, small files ~400KB/30s)
-  private _format = signal<RecordingFormat>('mp4');
+  private _format = signal<RecordingFormat>('wav');
   readonly format = this._format.asReadonly();
 
   setFormat(format: RecordingFormat): void {
@@ -96,18 +96,20 @@ export class AudioRecorderService {
       };
 
       this.mediaRecorder.start(1000); // Collect data every second
-      console.log(`Recording ${mimeType} at ${bitrate / 1000}kbps (MediaRecorder)`);
+      console.log(
+        `Recording ${mimeType} at ${bitrate / 1000}kbps (MediaRecorder)`
+      );
     }
   }
 
   private getSupportedMimeType(): string {
     // Prioritize Opus (best quality per bitrate), then AAC for iOS compatibility
     const types = [
-      'audio/webm;codecs=opus',  // Best quality - Chrome, Firefox, Android
-      'audio/ogg;codecs=opus',   // Firefox fallback
-      'audio/mp4',               // iOS/Safari
+      'audio/webm;codecs=opus', // Best quality - Chrome, Firefox, Android
+      'audio/ogg;codecs=opus', // Firefox fallback
+      'audio/mp4', // iOS/Safari
       'audio/mp4;codecs=mp4a.40.2', // AAC explicit
-      'audio/webm',              // Generic WebM
+      'audio/webm', // Generic WebM
     ];
 
     for (const type of types) {
