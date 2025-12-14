@@ -31,6 +31,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Create environment files
+        run: |
+          cat > src/environments/environment.ts << 'EOF'
+          export const environment = {
+            production: false,
+            apiUrl: 'https://four33-api-dmgddtanecdzbnh8.westeurope-01.azurewebsites.net/api',
+            googleClientId: '693414286728-sd23gnij8c78033bmi10atoig3nj5007.apps.googleusercontent.com',
+          };
+          EOF
+          cat > src/environments/environment.prod.ts << 'EOF'
+          export const environment = {
+            production: true,
+            apiUrl: 'https://four33-api-dmgddtanecdzbnh8.westeurope-01.azurewebsites.net/api',
+            googleClientId: '693414286728-sd23gnij8c78033bmi10atoig3nj5007.apps.googleusercontent.com',
+          };
+          EOF
+
       - name: Build
         run: npm run build -- --configuration production --base-href /
 
