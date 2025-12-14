@@ -26,7 +26,15 @@
       "Bash(powershell Compress-Archive -Path * -DestinationPath ../deploy.zip -Force)",
       "Bash(powershell \"Compress-Archive -Path ''./*'' -DestinationPath ''../deploy.zip'' -Force\")",
       "Bash(az webapp deploy:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git branch:*)",
+      "Bash(grep:*)",
+      "Bash(az webapp config hostname add:*)",
+      "Bash(node scripts/generate-icons.js:*)",
+      "Bash(npx cap:*)",
+      "Bash(az webapp config ssl create:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
