@@ -16,7 +16,7 @@ export class AudioRecorderService {
   // Developer toggle for recording format
   // 'wav' = RecordRTC (high quality, large files ~6MB/30s)
   // 'mp4' = Native MediaRecorder (compressed, small files ~400KB/30s)
-  private _format = signal<RecordingFormat>('wav');
+  private _format = signal<RecordingFormat>('mp4');
   readonly format = this._format.asReadonly();
 
   setFormat(format: RecordingFormat): void {
@@ -82,8 +82,8 @@ export class AudioRecorderService {
     } else {
       // Native MediaRecorder for compressed MP4/WebM
       const mimeType = this.getSupportedMimeType();
-      // 320kbps for near-transparent quality (still ~10x smaller than WAV)
-      const bitrate = 320000;
+      // 196kbps for near-transparent quality (still ~5x smaller than WAV)
+      const bitrate = 196000;
       this.mediaRecorder = new MediaRecorder(this.stream, {
         mimeType,
         audioBitsPerSecond: bitrate,
