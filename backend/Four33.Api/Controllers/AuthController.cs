@@ -49,14 +49,17 @@ public class AuthController : ControllerBase
             Username = request.Username,
             Email = request.Email,
             PasswordHash = _password.HashPassword(request.Password),
-            RefreshToken = _jwt.GenerateRefreshToken(),
-            RefreshTokenExpiryTime = _jwt.GetRefreshTokenExpiry()
+            InvitesRemaining = 0 // New users get 0 invites by default
         };
 
         _db.Users.Add(user);
+
+        var refreshToken = CreateRefreshToken(user.Id);
+        _db.RefreshTokens.Add(refreshToken);
+
         await _db.SaveChangesAsync();
 
-        return Ok(CreateAuthResponse(user));
+        return Ok(CreateAuthResponse(user, refreshToken.Token));
     }
 
     [HttpPost("login")]
@@ -78,11 +81,11 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "Invalid email or password" });
         }
 
-        user.RefreshToken = _jwt.GenerateRefreshToken();
-        user.RefreshTokenExpiryTime = _jwt.GetRefreshTokenExpiry();
+        var refreshToken = CreateRefreshToken(user.Id);
+        _db.RefreshTokens.Add(refreshToken);
         await _db.SaveChangesAsync();
 
-        return Ok(CreateAuthResponse(user));
+        return Ok(CreateAuthResponse(user, refreshToken.Token));
     }
 
     [HttpPost("google")]
@@ -109,7 +112,8 @@ public class AuthController : ControllerBase
                 Id = Guid.NewGuid(),
                 Username = GenerateUsername(validation.Name ?? validation.Email),
                 Email = validation.Email,
-                GoogleId = validation.GoogleId
+                GoogleId = validation.GoogleId,
+                InvitesRemaining = 0
             };
             _db.Users.Add(user);
         }
@@ -119,11 +123,11 @@ public class AuthController : ControllerBase
             user.GoogleId = validation.GoogleId;
         }
 
-        user.RefreshToken = _jwt.GenerateRefreshToken();
-        user.RefreshTokenExpiryTime = _jwt.GetRefreshTokenExpiry();
+        var refreshToken = CreateRefreshToken(user.Id);
+        _db.RefreshTokens.Add(refreshToken);
         await _db.SaveChangesAsync();
 
-        return Ok(CreateAuthResponse(user));
+        return Ok(CreateAuthResponse(user, refreshToken.Token));
     }
 
     [HttpPost("apple")]
@@ -150,7 +154,8 @@ public class AuthController : ControllerBase
                 Id = Guid.NewGuid(),
                 Username = GenerateUsername(request.FullName ?? validation.Email),
                 Email = validation.Email,
-                AppleId = validation.AppleId
+                AppleId = validation.AppleId,
+                InvitesRemaining = 0
             };
             _db.Users.Add(user);
         }
@@ -160,58 +165,100 @@ public class AuthController : ControllerBase
             user.AppleId = validation.AppleId;
         }
 
-        user.RefreshToken = _jwt.GenerateRefreshToken();
-        user.RefreshTokenExpiryTime = _jwt.GetRefreshTokenExpiry();
+        var refreshToken = CreateRefreshToken(user.Id);
+        _db.RefreshTokens.Add(refreshToken);
         await _db.SaveChangesAsync();
 
-        return Ok(CreateAuthResponse(user));
+        return Ok(CreateAuthResponse(user, refreshToken.Token));
     }
 
     [HttpPost("refresh")]
     public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshTokenRequest request)
     {
-        var user = await _db.Users
-            .Include(u => u.Followers)
-            .Include(u => u.Following)
-            .Include(u => u.Recordings)
-            .FirstOrDefaultAsync(u => u.RefreshToken == request.RefreshToken);
+        var refreshToken = await _db.RefreshTokens
+            .Include(rt => rt.User)
+                .ThenInclude(u => u.Followers)
+            .Include(rt => rt.User)
+                .ThenInclude(u => u.Following)
+            .Include(rt => rt.User)
+                .ThenInclude(u => u.Recordings)
+            .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken);
 
-        if (user == null || user.RefreshTokenExpiryTime < DateTime.UtcNow)
+        if (refreshToken == null || !refreshToken.IsActive)
         {
             return Unauthorized(new { error = "Invalid or expired refresh token" });
         }
 
-        user.RefreshToken = _jwt.GenerateRefreshToken();
-        user.RefreshTokenExpiryTime = _jwt.GetRefreshTokenExpiry();
-        await _db.SaveChangesAsync();
+        var user = refreshToken.User;
 
-        return Ok(CreateAuthResponse(user));
+        // Sliding window: only rotate token if close to expiry (less than 1 day remaining)
+        if (refreshToken.ExpiresAt < DateTime.UtcNow.AddDays(1))
+        {
+            // Revoke old token and create new one
+            refreshToken.RevokedAt = DateTime.UtcNow;
+            var newRefreshToken = CreateRefreshToken(user.Id);
+            _db.RefreshTokens.Add(newRefreshToken);
+            await _db.SaveChangesAsync();
+            return Ok(CreateAuthResponse(user, newRefreshToken.Token));
+        }
+
+        // Token still has plenty of time, just return new access token with same refresh token
+        await _db.SaveChangesAsync();
+        return Ok(CreateAuthResponse(user, refreshToken.Token));
     }
 
     [Authorize]
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout()
+    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest? request)
     {
         var userId = User.GetUserId();
         if (userId == null) return Unauthorized();
 
-        var user = await _db.Users.FindAsync(userId);
-        if (user != null)
+        if (request?.RefreshToken != null)
         {
-            user.RefreshToken = null;
-            user.RefreshTokenExpiryTime = null;
-            await _db.SaveChangesAsync();
+            // Revoke specific token
+            var refreshToken = await _db.RefreshTokens
+                .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken && rt.UserId == userId);
+            if (refreshToken != null)
+            {
+                refreshToken.RevokedAt = DateTime.UtcNow;
+            }
+        }
+        else
+        {
+            // Revoke all tokens for user (logout everywhere)
+            var tokens = await _db.RefreshTokens
+                .Where(rt => rt.UserId == userId && rt.RevokedAt == null)
+                .ToListAsync();
+            foreach (var token in tokens)
+            {
+                token.RevokedAt = DateTime.UtcNow;
+            }
         }
 
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 
-    private AuthResponse CreateAuthResponse(User user)
+    private RefreshToken CreateRefreshToken(Guid userId)
+    {
+        var deviceInfo = Request.Headers.UserAgent.ToString();
+        return new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Token = _jwt.GenerateRefreshToken(),
+            DeviceInfo = deviceInfo.Length > 500 ? deviceInfo[..500] : deviceInfo,
+            ExpiresAt = _jwt.GetRefreshTokenExpiry()
+        };
+    }
+
+    private AuthResponse CreateAuthResponse(User user, string refreshToken)
     {
         var accessToken = _jwt.GenerateAccessToken(user);
         return new AuthResponse(
             AccessToken: accessToken,
-            RefreshToken: user.RefreshToken!,
+            RefreshToken: refreshToken,
             ExpiresAt: DateTime.UtcNow.AddHours(1),
             User: user.ToProfileDto()
         );
@@ -246,5 +293,10 @@ public static class ClaimsPrincipalExtensions
     {
         var claim = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
         return claim != null && Guid.TryParse(claim.Value, out var id) ? id : null;
+    }
+
+    public static bool IsAdmin(this System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.HasClaim("IsAdmin", "true");
     }
 }

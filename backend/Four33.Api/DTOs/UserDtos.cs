@@ -17,7 +17,9 @@ public record UserProfileDto(
     int FollowingCount,
     int RecordingsCount,
     bool? IsFollowing,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    bool IsAdmin = false,
+    int InvitesRemaining = 0
 );
 
 public record UpdateUserRequest(

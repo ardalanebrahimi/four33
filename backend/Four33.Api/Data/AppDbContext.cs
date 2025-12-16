@@ -17,6 +17,9 @@ public class AppDbContext : DbContext
     public DbSet<PlayEvent> PlayEvents => Set<PlayEvent>();
     public DbSet<ViewEvent> ViewEvents => Set<ViewEvent>();
     public DbSet<SearchEvent> SearchEvents => Set<SearchEvent>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<JoinRequest> JoinRequests => Set<JoinRequest>();
+    public DbSet<InviteCode> InviteCodes => Set<InviteCode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -180,6 +183,67 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // RefreshToken
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Token).IsUnique();
+            entity.HasIndex(e => e.UserId);
+            entity.Property(e => e.Token).HasMaxLength(500);
+            entity.Property(e => e.DeviceInfo).HasMaxLength(500);
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // JoinRequest
+        modelBuilder.Entity<JoinRequest>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Email);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.CreatedAt).IsDescending();
+            entity.Property(e => e.Email).HasMaxLength(255);
+            entity.Property(e => e.Username).HasMaxLength(50);
+            entity.Property(e => e.Reason).HasMaxLength(1000);
+            entity.Property(e => e.ReviewNotes).HasMaxLength(500);
+
+            entity.HasOne(e => e.ReviewedBy)
+                .WithMany(u => u.ReviewedRequests)
+                .HasForeignKey(e => e.ReviewedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // InviteCode
+        modelBuilder.Entity<InviteCode>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Code).IsUnique();
+            entity.HasIndex(e => e.CreatedByUserId);
+            entity.Property(e => e.Code).HasMaxLength(20);
+
+            entity.HasOne(e => e.CreatedBy)
+                .WithMany(u => u.CreatedInviteCodes)
+                .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.UsedBy)
+                .WithMany()
+                .HasForeignKey(e => e.UsedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // User self-reference for InvitedBy
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasOne(e => e.InvitedBy)
+                .WithMany()
+                .HasForeignKey(e => e.InvitedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }

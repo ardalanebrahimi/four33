@@ -12,6 +12,17 @@ const authGuard = () => {
   return router.parseUrl('/auth');
 };
 
+const adminGuard = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  const user = auth.user();
+  if (user?.isAdmin) {
+    return true;
+  }
+  // Redirect to home without revealing admin exists
+  return router.parseUrl('/');
+};
+
 export const routes: Routes = [
   {
     path: 'auth',
@@ -57,6 +68,12 @@ export const routes: Routes = [
     path: 'trends',
     loadComponent: () =>
       import('./pages/trends/trends.page').then((m) => m.TrendsPage),
-    canActivate: [authGuard],
+    // Public - no authGuard
+  },
+  {
+    path: 'admin',
+    loadChildren: () =>
+      import('./admin/admin.routes').then((m) => m.adminRoutes),
+    canActivate: [adminGuard],
   },
 ];

@@ -11,6 +11,8 @@ export interface AuthUser {
   followingCount: number;
   recordingsCount: number;
   createdAt: string;
+  isAdmin: boolean;
+  invitesRemaining: number;
 }
 
 export interface AuthResponse {
@@ -150,13 +152,14 @@ export class AuthService {
   }
 
   async logout(): Promise<void> {
+    const refreshToken = this.getRefreshToken();
     try {
-      await firstValueFrom(this.api.post('auth/logout'));
+      await firstValueFrom(this.api.post('auth/logout', { refreshToken }));
     } catch {
       // Ignore errors on logout
     }
     this.clearAuthData();
-    this.router.navigate(['/']);
+    this.router.navigate(['/auth']);
   }
 
   async updateProfile(): Promise<void> {

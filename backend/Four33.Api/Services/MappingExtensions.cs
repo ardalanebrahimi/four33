@@ -31,7 +31,9 @@ public static class MappingExtensions
             IsFollowing: currentUserId.HasValue && currentUserId != user.Id
                 ? user.Followers.Any(f => f.FollowerId == currentUserId)
                 : null,
-            CreatedAt: user.CreatedAt
+            CreatedAt: user.CreatedAt,
+            IsAdmin: user.IsAdmin,
+            InvitesRemaining: user.InvitesRemaining
         );
     }
 
